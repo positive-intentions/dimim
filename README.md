@@ -16,7 +16,7 @@
 
 <div align="center">
 
-[**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate)
+[**Live**](https://positive-intentions.github.io/dimim/) | [**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate)
 
 </div>
 
