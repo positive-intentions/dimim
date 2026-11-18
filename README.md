@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  No app-side transpile, no npm install, no bundler. Open
+  No minify, no transpile, no npm install, no bundler. Open
   <a href="./index.html"><code>index.html</code></a> in Chrome
   (<code>file://</code> works).
 </p>
@@ -22,15 +22,15 @@
 
 ---
 
-Your **application logic** is ordinary `.js` files in this repo. The Dim
-runtime and reusable [dimui](https://github.com/positive-intentions/dimui)
+The **application logic** is ordinary `.js` files in this repo — no
+minification or transpilation. Open [`index.html`](./index.html) to run it.
+The Dim runtime and reusable [dimui](https://github.com/positive-intentions/dimui)
 widgets load from their GitHub Pages CDNs over the network.
 
 ## What this is
 
-A 1:1 encrypted chat app structured like
-[dim-boilerplate](https://github.com/positive-intentions/dim-boilerplate),
-with an **out-of-band invite → reply** WebRTC handshake:
+A 1:1 encrypted Meet app built with Dim, with an **out-of-band invite → reply**
+WebRTC handshake:
 
 1. Create / unlock an encrypted browser vault
 2. Set a local profile + ICE preset
@@ -47,7 +47,7 @@ Open [`index.html`](./index.html) twice (two tabs or two browsers) via
 `file://`, or if you need a URL origin (camera, some WebRTC setups):
 
 ```bash
-npx --yes serve -l 4173
+npx serve
 ```
 
 1. Tab A: create a vault → profile → copy the invite code (or scan the QR)
@@ -62,16 +62,12 @@ Runtimes: `?impl=js` or `?impl=wasm` (also in the header).
 
 dimui widgets load from the GitHub Pages CDN by default. To use a local
 checkout of unpublished atoms (e.g. `dimui-qr-code` / `dimui-qr-scanner`),
-serve both trees and point dimim at local dimui with `?dimuiSrc=`:
+serve both trees and point dimim at local dimui with `?dimuiSrc=` pointing at
+the dimui `src/` origin:
 
 ```bash
-# terminal A — dimui src/
-npx --yes serve ../dimui -l 4174
-
-# terminal B — dimim
-npx --yes serve . -l 4173
-# App:   http://127.0.0.1:4173/?dimuiSrc=http://127.0.0.1:4174/src/
-# Tests: http://127.0.0.1:4173/runTests.html?dimuiSrc=http://127.0.0.1:4174/src/
+npx serve ../dimui
+npx serve .
 ```
 
 ## Tree
@@ -104,14 +100,7 @@ classic scripts next to sources (`*.test.js`) that call `DimTest.test` /
 `DimTest.e2e`, mount real Dim custom elements, and assert on shadow DOM.
 
 Open [`runTests.html`](./runTests.html) the same way as the app
-(`file://` or `npx serve`):
-
-```bash
-# file:// — open runTests.html in Chrome
-# or:
-npx --yes serve -l 4173
-# then open http://127.0.0.1:4173/runTests.html
-```
+(`file://` or `npx serve`).
 
 ### What `runTests.html` does
 
@@ -137,10 +126,6 @@ E2E specs:
 - [`chat/e2e/meet-app.e2e.test.js`](./chat/e2e/meet-app.e2e.test.js) — vault + invite mint
 - [`chat/e2e/p2p.e2e.test.js`](./chat/e2e/p2p.e2e.test.js) — two isolated iframes; the
   controller copies invite/reply between them (no mock peer)
-
-## Explicitly later
-
-Onion/`on1:`, NFC, git mailbox, app-layer message sealing, groups/chat list.
 
 ## Related
 
