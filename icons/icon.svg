@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Encrypted notes">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <rect x="96" y="72" width="320" height="368" rx="28" fill="#1e293b" stroke="#029cfd" stroke-width="16"/>
+  <rect x="144" y="140" width="224" height="28" rx="8" fill="#94a3b8"/>
+  <rect x="144" y="200" width="176" height="22" rx="8" fill="#64748b"/>
+  <rect x="144" y="252" width="200" height="22" rx="8" fill="#64748b"/>
+  <rect x="144" y="304" width="140" height="22" rx="8" fill="#64748b"/>
+  <circle cx="368" cy="368" r="72" fill="#029cfd"/>
+  <path d="M344 368v-18a24 24 0 0 1 48 0v18" fill="none" stroke="#0f172a" stroke-width="14" stroke-linecap="round"/>
+  <rect x="332" y="360" width="72" height="52" rx="12" fill="#0f172a"/>
+</svg>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dimim — encrypted Meet</title>
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="dimim" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+    </style>
+    <!--
+      Inline classic script so document.write runs while the parser is open.
+      That sync-loads the Dim IIFE from GitHub Pages before runtime.js / chat / app.js.
+      Classic https:// scripts work from file://; dimui atoms load as classic scripts too.
+      When a service worker already controls the page, Dim is loaded via the
+      same-scope ./pwa/cdn/ proxy so the worker can serve it offline.
+    -->
+    <script>
+      (function () {
+        var STORAGE_KEY = "dimim-impl";
+        var CDN_DIM_LIB = "https://positive-intentions.github.io/dim/lib/";
+        var controlled =
+          typeof navigator !== "undefined" &&
+          navigator.serviceWorker &&
+          navigator.serviceWorker.controller;
+        var DIM_LIB = controlled ? "./pwa/cdn/dim/lib/" : CDN_DIM_LIB;
+        var impl = "js";
+        try {
+          var q = new URLSearchParams(location.search || "").get("impl") || "";
+          q = String(q).toLowerCase();
+          if (q === "js" || q === "wasm") {
+            impl = q;
+            try {
+              localStorage.setItem(STORAGE_KEY, impl);
+            } catch (e) {}
+          } else {
+            var stored = (localStorage.getItem(STORAGE_KEY) || "").toLowerCase();
+            if (stored === "js" || stored === "wasm") impl = stored;
+          }
+        } catch (e) {}
+        document.documentElement.dataset.dimRuntime = impl;
+        var src =
+          impl === "wasm"
+            ? DIM_LIB + "dim.wasm.global.js"
+            : DIM_LIB + "dim.global.js";
+        document.write('<script src="' + src + '"><\/script>');
+      })();
+    </script>
+    <script src="./runtime.js"></script>
+
+    <!-- lib -->
+    <script src="./chat/lib/vault.js"></script>
+    <script src="./chat/lib/tokens.js"></script>
+    <script src="./chat/lib/theme.js"></script>
+    <script src="./chat/lib/mockData/mockData.js"></script>
+    <script src="./chat/lib/pairing/pairing.js"></script>
+    <script src="./chat/lib/messages/messages.js"></script>
+    <script src="./chat/lib/frames/frames.js"></script>
+    <script src="./chat/lib/peer/peer.js"></script>
+    <script src="./chat/lib/qr-payload.js"></script>
+
+    <!-- atoms (proxies → remote dimui) -->
+    <script src="./chat/components/atoms/button.js"></script>
+    <script src="./chat/components/atoms/icon.js"></script>
+    <script src="./chat/components/atoms/icon-button.js"></script>
+    <script src="./chat/components/atoms/chip.js"></script>
+    <script src="./chat/components/atoms/text-field.js"></script>
+    <script src="./chat/components/atoms/text-area.js"></script>
+    <script src="./chat/components/atoms/avatar.js"></script>
+    <script src="./chat/components/atoms/badge.js"></script>
+    <script src="./chat/components/atoms/overlay.js"></script>
+    <script src="./chat/components/atoms/empty-state.js"></script>
+    <script src="./chat/components/atoms/divider.js"></script>
+    <script src="./chat/components/atoms/qr-code.js"></script>
+
+    <!-- molecules -->
+    <script src="./chat/components/molecules/confirm-dialog.js"></script>
+    <script src="./chat/components/molecules/overflow-menu.js"></script>
+    <script src="./chat/components/molecules/message-bubble.js"></script>
+    <script src="./chat/components/molecules/composer.js"></script>
+    <script src="./chat/components/molecules/chat-header.js"></script>
+    <script src="./chat/components/molecules/incoming-call-banner.js"></script>
+    <script src="./chat/components/molecules/qr-scanner.js"></script>
+    <script src="./chat/components/molecules/share-code-panel.js"></script>
+    <script src="./chat/components/molecules/qr-scanner-overlay.js"></script>
+
+    <!-- organisms -->
+    <script src="./chat/components/organisms/unlock-screen.js"></script>
+    <script src="./chat/components/organisms/call-screen.js"></script>
+    <script src="./chat/components/organisms/pairing-wizard.js"></script>
+    <script src="./chat/components/organisms/chat-thread.js"></script>
+
+    <!-- templates + shell + pages -->
+    <script src="./chat/components/templates/meet-layout.js"></script>
+    <script src="./chat/components/organisms/chat-shell.js"></script>
+    <script src="./chat/components/pages/meet-app/meet-app.js"></script>
+
+    <script src="./pwa.js"></script>
+    <script src="./app.js"></script>
+  </head>
+  <body>
+    <dimim-app></dimim-app>
+  </body>
+</html>
