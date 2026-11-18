@@ -1,9 +1,8 @@
 /**
- * Two-iframe e2e helpers. DimTest.open only keeps one visible preview iframe,
- * so peers are opened as isolated srcdoc frames (unique IDB + localStorage).
+ * Two-iframe e2e helpers. Peers use DimTest.open so they share the live
+ * side-by-side preview and the same srcdoc isolation as meet-app e2e.
  */
 (function (global) {
-  var peerSeq = 0;
   var openPeers = [];
 
   function sleep(ms) {
@@ -12,307 +11,84 @@
     });
   }
 
-  function isolationBootstrap(runId, seed) {
-    var seedJson = JSON.stringify(seed || {});
-    return (
-      "(function(){" +
-      "var RUN=" +
-      JSON.stringify(String(runId || "0")) +
-      ";" +
-      "var SEED=" +
-      seedJson +
-      ";" +
-      "var LIVE='DimDatabase';" +
-      "var PREFIX='__dimim_peer_'+RUN+'_';" +
-      "try{" +
-      "var origOpen=indexedDB.open.bind(indexedDB);" +
-      "indexedDB.open=function(name,version){" +
-      "var next=name;" +
-      "if(name===LIVE)next=LIVE+'_e2e_'+RUN;" +
-      "else if(name&&String(name).indexOf('_e2e_')<0)next=String(name)+'_e2e_'+RUN;" +
-      "return origOpen(next,version);" +
-      "};" +
-      "}catch(e){}" +
-      "try{" +
-      "var store=window.localStorage;" +
-      "var wrap={" +
-      "getItem:function(k){return store.getItem(PREFIX+k);}," +
-      "setItem:function(k,v){store.setItem(PREFIX+k,v);}," +
-      "removeItem:function(k){store.removeItem(PREFIX+k);}," +
-      "clear:function(){" +
-      "var keys=[];" +
-      "for(var i=0;i<store.length;i++){var key=store.key(i);if(key&&key.indexOf(PREFIX)===0)keys.push(key);}" +
-      "for(var j=0;j<keys.length;j++)store.removeItem(keys[j]);" +
-      "}," +
-      "key:function(i){var n=0;for(var i2=0;i2<store.length;i2++){var key=store.key(i2);if(key&&key.indexOf(PREFIX)===0){if(n===i)return key.slice(PREFIX.length);n++;}}return null;}," +
-      "get length(){var n=0;for(var i=0;i<store.length;i++){var key=store.key(i);if(key&&key.indexOf(PREFIX)===0)n++;}return n;}" +
-      "};" +
-      "try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(){return wrap;}});}catch(e2){window.localStorage=wrap;}" +
-      "try{var sk;for(sk in SEED){if(Object.prototype.hasOwnProperty.call(SEED,sk)&&SEED[sk]!=null)wrap.setItem(sk,String(SEED[sk]));}}catch(eSeed){}" +
-      "}catch(e3){}" +
-      "try{if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.resolve({unregister:function(){return Promise.resolve(true);}});};}}catch(e4){}" +
-      "})();"
-    );
-  }
-
-  function injectIsolation(html, baseHref, runId, seed) {
-    var baseTag =
-      '<base href="' + String(baseHref).replace(/"/g, "&quot;") + '">';
-    var boot = "<script>" + isolationBootstrap(runId, seed) + "<\/script>";
-    var inject = baseTag + boot;
-    if (/<head[^>]*>/i.test(html)) {
-      return html.replace(/<head[^>]*>/i, function (m) {
-        return m + inject;
-      });
-    }
-    return (
-      "<!DOCTYPE html><html><head>" +
-      inject +
-      "</head><body>" +
-      html +
-      "</body></html>"
-    );
-  }
-
-  function pierceOne(root, selector, depth) {
-    if (!root || depth > 20) return null;
-    try {
-      var el = root.querySelector && root.querySelector(selector);
-      if (el) return el;
-    } catch (e) {}
-    var nodes = root.querySelectorAll ? root.querySelectorAll("*") : [];
-    for (var i = 0; i < nodes.length; i++) {
-      var node = nodes[i];
-      if (node.shadowRoot) {
-        var hit = pierceOne(node.shadowRoot, selector, depth + 1);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  }
-
-  function pierceAll(root, selector, depth, out) {
-    out = out || [];
-    if (!root || depth > 20) return out;
-    try {
-      var list = root.querySelectorAll ? root.querySelectorAll(selector) : [];
-      for (var i = 0; i < list.length; i++) out.push(list[i]);
-    } catch (e) {}
-    var nodes = root.querySelectorAll ? root.querySelectorAll("*") : [];
-    for (var j = 0; j < nodes.length; j++) {
-      if (nodes[j].shadowRoot) {
-        pierceAll(nodes[j].shadowRoot, selector, depth + 1, out);
-      }
-    }
-    return out;
-  }
-
-  function deepText(el) {
-    if (!el) return "";
-    var parts = [];
-    function walk(node) {
-      if (!node) return;
-      if (node.nodeType === 3) {
-        parts.push(node.textContent || "");
-        return;
-      }
-      if (node.shadowRoot) walk(node.shadowRoot);
-      var kids = node.childNodes || [];
-      for (var i = 0; i < kids.length; i++) walk(kids[i]);
-    }
-    walk(el);
-    return parts.join(" ");
-  }
-
-  function makePage(iframe) {
-    var closed = false;
-    function doc() {
-      return (
-        iframe.contentDocument ||
-        (iframe.contentWindow && iframe.contentWindow.document)
-      );
-    }
-    function ensureOpen() {
-      if (closed) throw new Error("peer page closed");
-      var d = doc();
-      if (!d) throw new Error("peer contentDocument unavailable");
-      return d;
-    }
-    function query(selector) {
-      return pierceOne(ensureOpen(), selector, 0);
-    }
-    function queryAll(selector) {
-      return pierceAll(ensureOpen(), selector, 0, []);
-    }
-    function text(selector) {
-      if (selector == null) {
-        return deepText(ensureOpen().body || ensureOpen().documentElement);
-      }
-      var el = typeof selector === "string" ? query(selector) : selector;
-      return deepText(el);
-    }
-    function wait(selectorOrFn, timeoutMs) {
-      var timeout = timeoutMs || 30000;
-      var start = Date.now();
-      function tick() {
-        if (closed) return Promise.reject(new Error("peer wait: closed"));
-        var value = null;
-        try {
-          if (typeof selectorOrFn === "function") {
-            value = selectorOrFn(doc(), iframe.contentWindow);
-          } else {
-            value = pierceOne(doc(), String(selectorOrFn || ""), 0);
-          }
-        } catch (e) {
-          value = null;
-        }
-        if (value) return Promise.resolve(value);
-        if (Date.now() - start >= timeout) {
-          return Promise.reject(
-            new Error(
-              "peer wait timeout: " +
-                (typeof selectorOrFn === "function"
-                  ? "condition"
-                  : String(selectorOrFn)),
-            ),
-          );
-        }
-        return sleep(50).then(tick);
-      }
-      return tick();
-    }
-    function fill(selectorOrEl, value) {
-      var el =
-        typeof selectorOrEl === "string" ? query(selectorOrEl) : selectorOrEl;
-      if (!el) throw new Error("fill: element not found");
-      var input =
-        (el.shadowRoot &&
-          el.shadowRoot.querySelector("input, textarea")) ||
-        (el.matches && el.matches("input, textarea") ? el : null) ||
-        (el.querySelector && el.querySelector("input, textarea"));
-      if (!input) throw new Error("fill: no input");
-      var str = value == null ? "" : String(value);
-      input.focus && input.focus();
-      input.value = str;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      return sleep(0).then(function () {
-        return new Promise(function (resolve) {
-          requestAnimationFrame(function () {
-            requestAnimationFrame(resolve);
-          });
-        });
-      });
-    }
-    function click(selectorOrEl) {
-      var el =
-        typeof selectorOrEl === "string" ? query(selectorOrEl) : selectorOrEl;
-      if (!el) throw new Error("click: element not found");
-      var btn =
-        (el.shadowRoot && el.shadowRoot.querySelector("button")) || el;
-      btn.click();
-      return sleep(0);
-    }
-    function close() {
-      if (closed) return;
-      closed = true;
-      var idx = openPeers.indexOf(page);
-      if (idx >= 0) openPeers.splice(idx, 1);
-      if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-    }
-    var page = {
-      iframe: iframe,
-      query: query,
-      queryAll: queryAll,
-      text: text,
-      wait: wait,
-      fill: fill,
-      click: click,
-      close: close,
-    };
-    return page;
-  }
-
-  function hostRoot() {
-    var root = document.getElementById("dimim-peer-host");
-    if (!root) {
-      root = document.createElement("div");
-      root.id = "dimim-peer-host";
-      root.style.cssText =
-        "position:fixed;inset:0;display:flex;gap:4px;z-index:9998;pointer-events:none;";
-      document.body.appendChild(root);
-    }
-    return root;
-  }
-
-  function openPeer(label, opts) {
-    opts = opts || {};
-    peerSeq += 1;
-    var runId =
-      String(label || "p") +
-      "_" +
-      Date.now().toString(36) +
-      "_" +
-      peerSeq +
-      "_" +
-      Math.random().toString(36).slice(2, 6);
-    var url = opts.url || "./index.html";
-    var absolute = new URL(url, location.href);
-    var baseHref = absolute.href.replace(/[^/]*$/, "");
-    var seed = opts.seed || {};
+  function seedWithImpl(seed) {
+    seed = seed || {};
     try {
       var impl =
         (document.documentElement &&
           document.documentElement.dataset &&
           document.documentElement.dataset.dimRuntime) ||
         "";
-      if (impl === "js" || impl === "wasm") seed["dimim-impl"] = impl;
+      if (impl === "js" || impl === "wasm") {
+        if (seed["dimim-impl"] == null) seed["dimim-impl"] = impl;
+      }
     } catch (e) {}
+    return seed;
+  }
 
-    var iframe = document.createElement("iframe");
-    iframe.setAttribute("title", "dimim peer " + label);
-    iframe.setAttribute("data-dimim-peer", label || runId);
-    iframe.setAttribute(
-      "allow",
-      "camera; microphone; display-capture; autoplay",
-    );
-    iframe.style.cssText =
-      "flex:1;min-width:0;height:48vh;border:1px solid #64748b;pointer-events:auto;background:#0f172a;";
-    hostRoot().appendChild(iframe);
+  function openPeer(label, opts) {
+    opts = opts || {};
+    if (typeof DimTest === "undefined" || typeof DimTest.open !== "function") {
+      return Promise.reject(new Error("DimimE2E.openPeer: DimTest.open missing"));
+    }
+    var openOpts = {
+      ready: opts.ready || "dimim-unlock",
+      timeout: opts.timeout || 60000,
+      seed: seedWithImpl(opts.seed),
+    };
+    if (opts.cover != null) openOpts.cover = opts.cover;
+    if (opts.visible != null) openOpts.visible = opts.visible;
+    if (opts.mode) openOpts.mode = opts.mode;
 
-    return fetch(absolute.href)
-      .then(function (res) {
-        if (!res.ok) throw new Error("openPeer fetch failed " + res.status);
-        return res.text();
-      })
-      .then(function (html) {
-        iframe.srcdoc = injectIsolation(html, baseHref, runId, seed);
-        var page = makePage(iframe);
+    return DimTest.open(opts.url || "./index.html", openOpts)
+      .then(function (page) {
         openPeers.push(page);
-        return page
-          .wait(opts.ready || "dimim-app", opts.timeout || 60000)
-          .then(function () {
-            try {
-              var w = iframe.contentWindow;
-              if (w && w.BP && w.BP.require) {
-                return w.BP.require("chat/lib/peer").then(function (peer) {
-                  if (peer && peer.setIceWaitMs) peer.setIceWaitMs(1500);
-                  if (peer && peer.setIcePreset) peer.setIcePreset("cloudflare");
-                  return page;
-                });
-              }
-            } catch (e) {}
-            return page;
-          });
+        try {
+          var w = page.window;
+          if (w && w.BP && w.BP.require) {
+            return w.BP.require("chat/lib/peer").then(function (peer) {
+              if (peer && peer.setIceWaitMs) peer.setIceWaitMs(1500);
+              if (peer && peer.setIcePreset) peer.setIcePreset("cloudflare");
+              return page;
+            });
+          }
+        } catch (e) {}
+        return page;
+      })
+      .catch(function (err) {
+        var hint = "";
+        try {
+          var frame = document.getElementById("dim-test-e2e-preview-frame");
+          var iframes = frame && frame.querySelectorAll("iframe");
+          var iframe = iframes && iframes[iframes.length - 1];
+          var doc =
+            iframe &&
+            (iframe.contentDocument ||
+              (iframe.contentWindow && iframe.contentWindow.document));
+          if (doc && doc.body) {
+            hint = String(doc.body.textContent || "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 180);
+          }
+        } catch (e2) {}
+        var msg = err && err.message ? err.message : String(err);
+        if (hint) {
+          throw new Error(
+            msg + " (peer " + (label || "?") + " body: " + hint + ")",
+          );
+        }
+        throw err;
       });
   }
 
   function closeAllPeers() {
     while (openPeers.length) {
-      openPeers[0].close();
+      var page = openPeers.pop();
+      try {
+        if (page && typeof page.close === "function") page.close();
+      } catch (e) {}
     }
-    var host = document.getElementById("dimim-peer-host");
-    if (host && host.parentNode) host.parentNode.removeChild(host);
   }
 
   function readCode(page) {
@@ -358,30 +134,33 @@
         var panel = page.query("dimim-share-code-panel");
         var field = panel.shadowRoot.querySelector("dimui-text-field");
         if (!field) throw new Error("pasteCode: paste field missing");
-        return page.fill(field, code).then(function () {
-          return sleep(50);
-        }).then(function () {
-          // Ensure controlled value stuck (some Dim renders reset before click)
-          var input =
-            field.shadowRoot &&
-            field.shadowRoot.querySelector("input, textarea");
-          if (input && input.value !== code) {
-            input.value = code;
-            input.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          var usePaste = Array.prototype.find.call(
-            panel.shadowRoot.querySelectorAll("dimui-button"),
-            function (b) {
-              return (
-                ((b.shadowRoot && b.shadowRoot.textContent) || "").indexOf(
-                  "Use pasted",
-                ) >= 0
-              );
-            },
-          );
-          if (!usePaste) throw new Error("pasteCode: Use pasted missing");
-          return page.click(usePaste);
-        });
+        return page
+          .fill(field, code)
+          .then(function () {
+            return sleep(50);
+          })
+          .then(function () {
+            // Ensure controlled value stuck (some Dim renders reset before click)
+            var input =
+              field.shadowRoot &&
+              field.shadowRoot.querySelector("input, textarea");
+            if (input && input.value !== code) {
+              input.value = code;
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            var usePaste = Array.prototype.find.call(
+              panel.shadowRoot.querySelectorAll("dimui-button"),
+              function (b) {
+                return (
+                  ((b.shadowRoot && b.shadowRoot.textContent) || "").indexOf(
+                    "Use pasted",
+                  ) >= 0
+                );
+              },
+            );
+            if (!usePaste) throw new Error("pasteCode: Use pasted missing");
+            return page.click(usePaste);
+          });
       });
   }
 

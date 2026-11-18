@@ -151,7 +151,9 @@
     globalThis.RTCPeerConnection = MockRTCPeerConnection;
     globalThis.MediaStream = MockMediaStream;
     globalThis.navigator = globalThis.navigator || {};
-    globalThis.navigator.mediaDevices = {
+    // navigator.mediaDevices is often non-writable — defineProperty so tests
+    // never hit the real getUserMedia (NotFoundError: Requested device not found).
+    var fakeDevices = {
       getUserMedia: function (opts) {
         var tracks = [];
         if (!opts || opts.audio !== false) tracks.push(new MockTrack("audio"));
@@ -162,6 +164,17 @@
         return Promise.resolve(new MockMediaStream([new MockTrack("video")]));
       },
     };
+    try {
+      Object.defineProperty(globalThis.navigator, "mediaDevices", {
+        configurable: true,
+        writable: true,
+        value: fakeDevices,
+      });
+    } catch (eDef) {
+      try {
+        globalThis.navigator.mediaDevices = fakeDevices;
+      } catch (eAssign) {}
+    }
   }
 
   test("peer presets parse invite reply", async function () {

@@ -6,8 +6,8 @@
     expect(typeof DimimE2E).toBe("object");
     DimimE2E.closeAllPeers();
 
-    var pageA = await DimimE2E.openPeer("a", { ready: "dimim-app", timeout: 60000 });
-    var pageB = await DimimE2E.openPeer("b", { ready: "dimim-app", timeout: 60000 });
+    var pageA = await DimimE2E.openPeer("a", { timeout: 60000 });
+    var pageB = await DimimE2E.openPeer("b", { timeout: 60000 });
 
     try {
       await DimimE2E.createVault(pageA, "pass-a-1234");

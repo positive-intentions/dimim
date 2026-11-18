@@ -10,12 +10,13 @@
 
 <p align="center">
   No app-side transpile, no npm install, no bundler. Open
-  <a href="./index.html"><code>index.html</code></a> in Chrome or use a local static server.
+  <a href="./index.html"><code>index.html</code></a> in Chrome
+  (<code>file://</code> works).
 </p>
 
 <div align="center">
 
-[**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate) | [**webrtc**](https://github.com/positive-intentions/webrtc)
+[**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate)
 
 </div>
 
@@ -27,9 +28,9 @@ widgets load from their GitHub Pages CDNs over the network.
 
 ## What this is
 
-A Meet-style 1:1 app structured like [dim-boilerplate](https://github.com/positive-intentions/dim-boilerplate),
-with the same **out-of-band invite → reply** handshake as
-[webrtc Meet](https://github.com/positive-intentions/webrtc):
+A 1:1 encrypted chat app structured like
+[dim-boilerplate](https://github.com/positive-intentions/dim-boilerplate),
+with an **out-of-band invite → reply** WebRTC handshake:
 
 1. Create / unlock an encrypted browser vault
 2. Set a local profile + ICE preset
@@ -42,12 +43,14 @@ App-layer sealing and git mailbox are out of scope for this pass.
 
 ## Quick start (two tabs)
 
+Open [`index.html`](./index.html) twice (two tabs or two browsers) via
+`file://`, or if you need a URL origin (camera, some WebRTC setups):
+
 ```bash
-python3 -m http.server 4173
-# Open http://127.0.0.1:4173/ in two browser tabs (or two browsers)
+npx --yes serve -l 4173
 ```
 
-1. Tab A: create a vault → profile → copy the invite code
+1. Tab A: create a vault → profile → copy the invite code (or scan the QR)
 2. Tab B: create a vault (different password) → profile → paste A’s invite → copy the reply
 3. Tab A: paste B’s reply
 4. Both sides enter the thread when the data channel + `hello` frame land
@@ -58,17 +61,17 @@ Runtimes: `?impl=js` or `?impl=wasm` (also in the header).
 ### Local dimui (QR encode/scan before Pages deploy)
 
 dimui widgets load from the GitHub Pages CDN by default. To use a local
-checkout of unpublished atoms (e.g. `dimui-qr-code` / `dimui-qr-scanner`):
+checkout of unpublished atoms (e.g. `dimui-qr-code` / `dimui-qr-scanner`),
+serve both trees and point dimim at local dimui with `?dimuiSrc=`:
 
 ```bash
-# terminal A — dimui explorer / src tree
-cd ../dimui && python3 -m http.server 4174 --bind 127.0.0.1
+# terminal A — dimui src/
+npx --yes serve ../dimui -l 4174
 
 # terminal B — dimim
-python3 -m http.server 4173 --bind 127.0.0.1
-# Open http://127.0.0.1:4173/?dimuiSrc=http://127.0.0.1:4174/src/
+npx --yes serve . -l 4173
+# App:   http://127.0.0.1:4173/?dimuiSrc=http://127.0.0.1:4174/src/
 # Tests: http://127.0.0.1:4173/runTests.html?dimuiSrc=http://127.0.0.1:4174/src/
-# Or: DIMUI_SRC=http://127.0.0.1:4174/src/ node .github/scripts/run-app-tests.mjs
 ```
 
 ## Tree
@@ -84,7 +87,7 @@ dimim/
 ├── manifest.webmanifest
 └── chat/
     ├── e2e/          # helpers + single-iframe + two-iframe p2p
-    ├── lib/          # vault, peer, frames, pairing, messages
+    ├── lib/          # vault, peer, frames, pairing, messages, qr-payload
     └── components/
         ├── atoms/    # proxies → remote dimui
         ├── molecules/
@@ -95,20 +98,45 @@ dimim/
 
 ## Tests
 
+Dim ships a **pure-JS** test runner ([`DimTest`](https://github.com/positive-intentions/dim)) —
+no Jest/Vitest/Playwright required to author or run specs. Specs are plain
+classic scripts next to sources (`*.test.js`) that call `DimTest.test` /
+`DimTest.e2e`, mount real Dim custom elements, and assert on shadow DOM.
+
+Open [`runTests.html`](./runTests.html) the same way as the app
+(`file://` or `npx serve`):
+
 ```bash
-python3 -m http.server 4173
-# Open http://127.0.0.1:4173/runTests.html
+# file:// — open runTests.html in Chrome
+# or:
+npx --yes serve -l 4173
+# then open http://127.0.0.1:4173/runTests.html
 ```
 
-Specs sit next to sources (`*.test.js`) plus:
+### What `runTests.html` does
+
+1. Loads Dim + `DimTest` (+ coverage helper) from the Dim CDN
+2. Installs the same `BP` module shim as the app (`runtime.js`)
+3. **Instruments** every `chat/**` source with line probes, then loads the
+   matching `*.test.js` files
+4. Runs the suite in the page: unit tests first, then e2e
+
+The page itself is the report UI:
+
+- Splash while Dim / sources / tests load
+- Pass/fail list with expandable errors
+- Live **coverage** panel for instrumented `chat/**` (unit bucket targets
+  **100%**; peer uses a mock `RTCPeerConnection`)
+- **E2E preview**: `DimTest.open` (and two-peer helpers that wrap it) render
+  the real app under the report — peers appear side-by-side for handshake flows
+
+Useful query flags: `?impl=js|wasm`, `?dimuiSrc=…`, `?dimLib=…`.
+
+E2E specs:
 
 - [`chat/e2e/meet-app.e2e.test.js`](./chat/e2e/meet-app.e2e.test.js) — vault + invite mint
-- [`chat/e2e/p2p.e2e.test.js`](./chat/e2e/p2p.e2e.test.js) — two isolated iframes; the test
+- [`chat/e2e/p2p.e2e.test.js`](./chat/e2e/p2p.e2e.test.js) — two isolated iframes; the
   controller copies invite/reply between them (no mock peer)
-
-CI runs JS + WASM via Playwright with
-`--use-fake-ui-for-media-stream` / `--use-fake-device-for-media-stream`.
-Unit coverage of instrumented `chat/**` aims for **100%** (peer uses a mock `RTCPeerConnection`).
 
 ## Explicitly later
 
@@ -118,4 +146,3 @@ Onion/`on1:`, NFC, git mailbox, app-layer message sealing, groups/chat list.
 
 - [dim-boilerplate](https://github.com/positive-intentions/dim-boilerplate) — encrypted notes reference app
 - [dimui messaging demo](https://github.com/positive-intentions/dimui/tree/staging/src/demos/messaging) — multi-chat explorer demo (out of scope here)
-- [webrtc Meet](https://github.com/positive-intentions/webrtc) — reference P2P Meet handshake
