@@ -40,6 +40,7 @@
     "./chat/lib/frames/frames.js",
     "./chat/lib/peer/peer.js",
     "./chat/lib/qr-payload.js",
+    "./chat/lib/qr-png.js",
     "./chat/components/atoms/button.js",
     "./chat/components/atoms/icon.js",
     "./chat/components/atoms/icon-button.js",

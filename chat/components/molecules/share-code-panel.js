@@ -5,12 +5,15 @@ BP.module(
     "chat/components/atoms/text-field",
     "chat/components/atoms/qr-code",
     "chat/lib/qr-payload",
+    "chat/lib/qr-png",
+    "dimui/lib/qr-decode",
   ],
-  function (button, textField, qrCode, qrPayload) {
+  function (button, textField, qrCode, qrPayload, qrPng, qrDecode) {
     const { define, css } = Dim;
     const { Button } = button;
     const { TextField } = textField;
     const { QrCode } = qrCode;
+    const FILENAME = "connection-code.png";
 
     const styles = css`
       :host {
@@ -71,7 +74,35 @@ BP.module(
         color: var(--chat-text-muted, #94a3b8);
         font-size: 0.85rem;
       }
+
+      .hint {
+        color: var(--chat-text-muted, #94a3b8);
+        font-size: 0.85rem;
+        margin: 0;
+      }
+
+      .file-input {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
     `;
+
+    function findQrSvg(host) {
+      if (!host) return null;
+      try {
+        var qr = host.querySelector("dimui-qr-code");
+        if (!qr || !qr.shadowRoot) return null;
+        return qr.shadowRoot.querySelector("svg");
+      } catch (e) {
+        return null;
+      }
+    }
 
     const ShareCodePanel = define({
       tag: "dimim-share-code-panel",
@@ -97,7 +128,11 @@ BP.module(
         const [showMore, setShowMore] = state(true);
         const [qrValue, setQrValue] = state("");
         const [qrBusy, setQrBusy] = state(false);
+        const [canShare, setCanShare] = state(false);
+        const [hint, setHint] = state("");
         const pasteRowRef = ref();
+        const panelRef = ref();
+        const fileRef = ref();
 
         const onCopy =
           typeof props.onCopy === "function" ? props.onCopy : () => {};
@@ -107,6 +142,12 @@ BP.module(
             : () => {};
         const onScan =
           typeof props.onScan === "function" ? props.onScan : () => {};
+
+        const qrReady = Boolean(localCode && qrValue && !minting);
+
+        effect(() => {
+          setCanShare(Boolean(qrPng.canSharePng && qrPng.canSharePng()));
+        }, []);
 
         effect(() => {
           if (!localCode) {
@@ -137,6 +178,7 @@ BP.module(
 
         const copy = async () => {
           if (!localCode) return;
+          setHint("");
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               await navigator.clipboard.writeText(localCode);
@@ -159,11 +201,89 @@ BP.module(
               live = input.value;
             }
           } catch (e) {}
+          setHint("");
           onPasteCode(live);
         };
 
+        const rasterize = async () => {
+          var svg = findQrSvg(panelRef.current);
+          if (!svg) {
+            setHint("QR isn’t ready yet. Wait a moment and try again.");
+            return null;
+          }
+          try {
+            return await qrPng.pngBlobFromSvg(svg, 512);
+          } catch (e) {
+            setHint("QR isn’t ready yet. Wait a moment and try again.");
+            return null;
+          }
+        };
+
+        const saveQr = async () => {
+          if (!qrReady) {
+            setHint("QR isn’t ready yet. Wait a moment and try again.");
+            return;
+          }
+          setHint("");
+          var blob = await rasterize();
+          if (!blob) return;
+          var result = qrPng.downloadPng(blob, FILENAME);
+          if (result === "unsupported") {
+            setHint(
+              canShare
+                ? "Couldn’t save here — try Share QR Code instead."
+                : "Couldn’t save the QR here. Copy the code or take a screenshot.",
+            );
+          }
+        };
+
+        const shareQr = async () => {
+          if (!qrReady) {
+            setHint("QR isn’t ready yet. Wait a moment and try again.");
+            return;
+          }
+          setHint("");
+          var blob = await rasterize();
+          if (!blob) return;
+          var result = await qrPng.sharePng(blob, FILENAME, "Meet code");
+          if (result === "abort") return;
+          if (result === "gesture") {
+            setHint("Tap Share QR Code again to continue.");
+            return;
+          }
+          if (result === "unsupported" || result === "fail") {
+            setHint(
+              "Couldn’t share the QR here. Try Save QR Code or copy the code.",
+            );
+          }
+        };
+
+        const pickUpload = () => {
+          setHint("");
+          var input = fileRef.current;
+          if (input) input.click();
+        };
+
+        const onFileChange = async (ev) => {
+          var file = ev.target && ev.target.files && ev.target.files[0];
+          if (ev.target) ev.target.value = "";
+          if (!file) return;
+          setHint("");
+          var text = null;
+          try {
+            text = await qrDecode.decodeImageFile(file);
+          } catch (e) {
+            text = null;
+          }
+          if (text) {
+            onPasteCode(String(text));
+            return;
+          }
+          setHint("No QR code found in that image.");
+        };
+
         return tpl`
-          <div class="panel">
+          <div class="panel" ref=${panelRef}>
             <div class="qr">
               ${
                 localCode && qrValue
@@ -207,7 +327,43 @@ BP.module(
                   onClick: onScan,
                 }}"
               />
+              <dimui-button
+                .props="${{
+                  label: "Save QR Code",
+                  variant: "outlined",
+                  disabled: !qrReady,
+                  onClick: saveQr,
+                }}"
+              />
+              ${
+                canShare
+                  ? tpl`<dimui-button
+                      .props="${{
+                        label: "Share QR Code",
+                        variant: "outlined",
+                        disabled: !qrReady,
+                        onClick: shareQr,
+                      }}"
+                    />`
+                  : null
+              }
+              <input
+                class="file-input"
+                type="file"
+                accept="image/*"
+                tabindex="-1"
+                ref=${fileRef}
+                @change=${onFileChange}
+              />
+              <dimui-button
+                .props="${{
+                  label: "Upload QR Code",
+                  variant: "outlined",
+                  onClick: pickUpload,
+                }}"
+              />
             </div>
+            ${hint ? tpl`<p class="hint" role="status">${hint}</p>` : null}
             <dimui-button
               .props="${{
                 label: showMore ? "Hide paste" : "Paste peer code",

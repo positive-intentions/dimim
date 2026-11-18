@@ -1,5 +1,5 @@
 {
-  "id": "/dimim/",
+  "id": "/",
   "name": "dimim — encrypted Meet",
   "short_name": "dimim",
   "description": "Mock WebRTC Meet messaging UI built with Dim — works offline after the first visit.",
