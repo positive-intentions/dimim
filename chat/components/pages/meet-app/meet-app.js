@@ -66,8 +66,18 @@ BP.module(
 
         if (!password) {
           return tpl`
-            <dimim-unlock
-              .props="${{ onUnlock: unlockVault, error, theme: themeValue }}"
+            <dimui-unlock
+              .props="${{
+                title: "Meet",
+                unlockHint:
+                  "Enter your password to decrypt this browser vault.",
+                createHint:
+                  "Choose a password to encrypt Meet data in this browser. There is no recovery if you forget it.",
+                vaultFlag: "dimim-vault",
+                onUnlock: unlockVault,
+                error,
+                theme: themeValue,
+              }}"
             />
           `;
         }

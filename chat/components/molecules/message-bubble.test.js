@@ -6,7 +6,7 @@
 
   test("message-bubble text and file", async function () {
     await BP.require("chat/components/molecules/message-bubble");
-    var textEl = await mount("dimim-message-bubble", {
+    var textEl = await mount("dimui-message-bubble", {
       message: {
         id: "1",
         direction: "out",
@@ -19,7 +19,7 @@
     expect(shadowText(textEl)).toContain("Hello");
 
     var cancelled = false;
-    var fileEl = await mount("dimim-message-bubble", {
+    var fileEl = await mount("dimui-message-bubble", {
       message: {
         id: "2",
         direction: "out",
@@ -44,7 +44,7 @@
     btn.shadowRoot.querySelector("button").click();
     expect(cancelled).toBe(true);
 
-    var empty = await mount("dimim-message-bubble", { message: null });
+    var empty = await mount("dimui-message-bubble", { message: null });
     expect(shadowText(empty)).toBe("");
   });
 })();

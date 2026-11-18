@@ -99,9 +99,7 @@
     );
     scanBtn.shadowRoot.querySelector("button").click();
     await sleep(0);
-    var overlay = shareScan.shadowRoot.querySelector("dimim-qr-scanner-overlay");
-    expect(Boolean(overlay)).toBe(true);
-    var scanner = overlay.shadowRoot.querySelector("dimui-qr-scanner");
+    var scanner = shareScan.shadowRoot.querySelector("dimui-qr-scanner");
     expect(Boolean(scanner)).toBe(true);
     var closeBtn = Array.prototype.find.call(
       scanner.shadowRoot.querySelectorAll("dimui-button"),

@@ -8,7 +8,7 @@
     await BP.require("chat/components/molecules/incoming-call-banner");
     var accepted = false;
     var declined = false;
-    var el = await mount("dimim-incoming-call-banner", {
+    var el = await mount("dimui-incoming-call-banner", {
       open: true,
       kind: "video",
       peer: { displayName: "Alex Rivera" },

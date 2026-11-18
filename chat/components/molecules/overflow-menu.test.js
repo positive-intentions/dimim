@@ -12,7 +12,7 @@
   test("overflow-menu opens and invokes item", async function () {
     await BP.require("chat/components/molecules/overflow-menu");
     var clicked = false;
-    var el = await mount("dimim-overflow-menu", {
+    var el = await mount("dimui-overflow-menu", {
       items: [
         {
           label: "Do it",

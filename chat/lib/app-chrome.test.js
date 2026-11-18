@@ -6,6 +6,8 @@
     var chrome = await BP.require("chat/lib/app-chrome");
     expect(Boolean(chrome.shellStyles)).toBe(true);
     expect(typeof chrome.currentImpl).toBe("function");
+    expect(typeof chrome.buildImplHref).toBe("function");
+    expect(typeof chrome.setNavigateImpl).toBe("function");
     expect(typeof chrome.setImpl).toBe("function");
     expect(typeof chrome.dispatchTheme).toBe("function");
 
@@ -32,23 +34,19 @@
     expect(heard).toBe("dark");
     window.removeEventListener("dimui-theme-change", onTheme);
 
-    var origHref = location.href;
+    expect(
+      chrome.buildImplHref("wasm", "http://example.test/app").indexOf("impl=wasm"),
+    ).toBeGreaterThan(-1);
+
     var assigned = null;
-    var desc = Object.getOwnPropertyDescriptor(Location.prototype, "href");
-    if (desc && desc.set) {
-      var origSet = desc.set;
-      Object.defineProperty(location, "href", {
-        configurable: true,
-        get: function () {
-          return assigned || origHref;
-        },
-        set: function (v) {
-          assigned = String(v);
-        },
-      });
-      chrome.setImpl("wasm");
-      expect(assigned.indexOf("impl=wasm")).toBeGreaterThan(-1);
-      Object.defineProperty(location, "href", desc);
-    }
+    chrome.setNavigateImpl(function (href) {
+      assigned = String(href);
+    });
+    chrome.setImpl("wasm");
+    expect(assigned.indexOf("impl=wasm")).toBeGreaterThan(-1);
+
+    // Reset to no-op navigator (production wiring lives in app.js).
+    chrome.setNavigateImpl(null);
+    chrome.setImpl("js");
   });
 })();

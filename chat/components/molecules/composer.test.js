@@ -12,7 +12,7 @@
 
   test("composer disabled and send", async function () {
     await BP.require("chat/components/molecules/composer");
-    var disabled = await mount("dimim-composer", {
+    var disabled = await mount("dimui-composer", {
       enabled: false,
       disabledHint: "Wait for connection",
     });
@@ -21,7 +21,7 @@
     var sent = null;
     var typing = null;
     var attached = null;
-    var el = await mount("dimim-composer", {
+    var el = await mount("dimui-composer", {
       enabled: true,
       onSend: function (text) {
         sent = text;

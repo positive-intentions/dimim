@@ -6,7 +6,7 @@ BP.module(
     "chat/components/atoms/button",
     "chat/components/atoms/text-field",
     "chat/components/molecules/share-code-panel",
-    "chat/components/molecules/qr-scanner-overlay",
+    "chat/components/molecules/qr-scanner",
   ],
   function (tokens, mock, button, textField, sharePanel, scanner) {
     const { define, css } = Dim;
@@ -15,7 +15,7 @@ BP.module(
     const { Button } = button;
     const { TextField } = textField;
     const { ShareCodePanel } = sharePanel;
-    const { QrScannerOverlay } = scanner;
+    const { QrScanner } = scanner;
 
     const styles = css`
       ${chatTokens}
@@ -101,7 +101,7 @@ BP.module(
         { html: tpl, useState: state, useStyle: style, useScope: scope },
       ) => {
         style(styles);
-        scope({ Button, TextField, ShareCodePanel, QrScannerOverlay });
+        scope({ Button, TextField, ShareCodePanel, QrScanner });
 
         const theme = props.theme === "light" ? "light" : "dark";
         const phase = props.phase || "profile";
@@ -230,14 +230,15 @@ BP.module(
                   : null
               }
             </div>
-            <dimim-qr-scanner-overlay
+            <dimui-qr-scanner
               .props="${{
                 open: scannerOpen,
+                title: "Scan peer code",
                 onClose: () => setScannerOpen(false),
                 onDetect: (code) => {
                   setScannerOpen(false);
                   if (phase === "shareReply") return;
-                  onPasteCode(code);
+                  onPasteCode(String(code || ""));
                 },
               }}"
             />

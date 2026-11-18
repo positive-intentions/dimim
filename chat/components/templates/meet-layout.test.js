@@ -22,7 +22,7 @@
       confirmProps: { open: false },
     });
     expect(pairing.shadowRoot.querySelector("dimim-pairing-wizard")).toBeTruthy();
-    expect(pairing.shadowRoot.querySelector("dimim-chat-thread")).toBe(null);
+    expect(pairing.shadowRoot.querySelector("dimui-chat-thread")).toBe(null);
 
     var thread = await mount("dimim-meet-layout", {
       theme: "light",
@@ -37,7 +37,7 @@
       callProps: { open: false },
       confirmProps: { open: false },
     });
-    expect(thread.shadowRoot.querySelector("dimim-chat-thread")).toBeTruthy();
+    expect(thread.shadowRoot.querySelector("dimui-chat-thread")).toBeTruthy();
     expect(thread.shadowRoot.querySelector("dimim-pairing-wizard")).toBe(null);
   });
 })();

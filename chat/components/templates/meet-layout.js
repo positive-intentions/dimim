@@ -49,11 +49,11 @@ BP.module(
           <div class="layout frame" data-theme="${theme}">
             ${
               connected
-                ? tpl`<dimim-chat-thread .props="${threadProps}" />`
+                ? tpl`<dimui-chat-thread .props="${threadProps}" />`
                 : tpl`<dimim-pairing-wizard .props="${pairingProps}" />`
             }
             <dimim-call-screen .props="${callProps}" />
-            <dimim-confirm-dialog .props="${confirmProps}" />
+            <dimui-confirm-dialog .props="${confirmProps}" />
           </div>
         `;
       },

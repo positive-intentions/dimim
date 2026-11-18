@@ -280,15 +280,15 @@
       return (
         layout &&
         layout.shadowRoot &&
-        layout.shadowRoot.querySelector("dimim-chat-thread")
+        layout.shadowRoot.querySelector("dimui-chat-thread")
       );
     }, "chat thread", 15000);
 
-    expect(shadowText(thread.shadowRoot.querySelector("dimim-chat-header"))).toContain(
+    expect(shadowText(thread.shadowRoot.querySelector("dimui-chat-header"))).toContain(
       "Bo",
     );
 
-    var composer = thread.shadowRoot.querySelector("dimim-composer");
+    var composer = thread.shadowRoot.querySelector("dimui-composer");
     var ta = composer.shadowRoot.querySelector("textarea");
     ta.value = "hello peer";
     ta.dispatchEvent(new Event("input", { bubbles: true }));
@@ -299,7 +299,7 @@
       .click();
 
     await waitFor(function () {
-      var bubbles = thread.shadowRoot.querySelectorAll("dimim-message-bubble");
+      var bubbles = thread.shadowRoot.querySelectorAll("dimui-message-bubble");
       for (var i = 0; i < bubbles.length; i++) {
         if (shadowText(bubbles[i]).indexOf("hello peer") >= 0) return true;
       }
@@ -344,8 +344,8 @@
     inject(frames.callInvite("voice"));
     await flush(el);
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    var banner = thread.shadowRoot.querySelector("dimim-incoming-call-banner");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    var banner = thread.shadowRoot.querySelector("dimui-incoming-call-banner");
     if (banner) {
       banner.shadowRoot
         .querySelectorAll("dimui-button")[0]
@@ -358,8 +358,8 @@
     inject(frames.callInvite("video"));
     await flush(el);
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    banner = thread.shadowRoot.querySelector("dimim-incoming-call-banner");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    banner = thread.shadowRoot.querySelector("dimui-incoming-call-banner");
     if (banner) {
       banner.shadowRoot
         .querySelectorAll("dimui-button")[1]
@@ -379,8 +379,8 @@
     }
 
     // Outbound voice
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    var header = thread.shadowRoot.querySelector("dimim-chat-header");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    var header = thread.shadowRoot.querySelector("dimui-chat-header");
     header.shadowRoot
       .querySelectorAll("dimui-icon-button")[0]
       .shadowRoot.querySelector("button")
@@ -405,7 +405,7 @@
     await flush(el);
 
     // Video + share path
-    header = thread.shadowRoot.querySelector("dimim-chat-header");
+    header = thread.shadowRoot.querySelector("dimui-chat-header");
     header.shadowRoot
       .querySelectorAll("dimui-icon-button")[1]
       .shadowRoot.querySelector("button")
@@ -474,7 +474,7 @@
     Object.defineProperty(huge, "size", {
       value: frames.fileMaxBytes() + 10,
     });
-    composer = thread.shadowRoot.querySelector("dimim-composer");
+    composer = thread.shadowRoot.querySelector("dimui-composer");
     fileInput = composer.shadowRoot.querySelector('input[type="file"]');
     Object.defineProperty(fileInput, "files", {
       value: [huge],
@@ -487,7 +487,7 @@
     failFile.arrayBuffer = function () {
       return Promise.reject(new Error("ab fail"));
     };
-    composer = thread.shadowRoot.querySelector("dimim-composer");
+    composer = thread.shadowRoot.querySelector("dimui-composer");
     fileInput = composer.shadowRoot.querySelector('input[type="file"]');
     Object.defineProperty(fileInput, "files", {
       value: [failFile],
@@ -519,8 +519,8 @@
     fileInput.dispatchEvent(new Event("change", { bubbles: true }));
     await sleep(10);
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    var edgeBubbles = thread.shadowRoot.querySelectorAll("dimim-message-bubble");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    var edgeBubbles = thread.shadowRoot.querySelectorAll("dimui-message-bubble");
     for (var bi = 0; bi < edgeBubbles.length; bi++) {
       var cbtn =
         edgeBubbles[bi].shadowRoot &&
@@ -533,7 +533,7 @@
     navigator.mediaDevices.getUserMedia = function () {
       return Promise.reject(new Error("denied"));
     };
-    header = thread.shadowRoot.querySelector("dimim-chat-header");
+    header = thread.shadowRoot.querySelector("dimui-chat-header");
     header.shadowRoot
       .querySelectorAll("dimui-icon-button")[0]
       .shadowRoot.querySelector("button")
@@ -607,9 +607,9 @@
 
     // Clear history
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    header = thread.shadowRoot.querySelector("dimim-chat-header");
-    var menu = header.shadowRoot.querySelector("dimim-overflow-menu");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    header = thread.shadowRoot.querySelector("dimui-chat-header");
+    var menu = header.shadowRoot.querySelector("dimui-overflow-menu");
     menu.shadowRoot
       .querySelector("dimui-icon-button")
       .shadowRoot.querySelector("button")
@@ -619,7 +619,7 @@
     items[0].click();
     await flush(el);
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    var confirm = layout.shadowRoot.querySelector("dimim-confirm-dialog");
+    var confirm = layout.shadowRoot.querySelector("dimui-confirm-dialog");
     confirm.shadowRoot
       .querySelectorAll("dimui-button")[1]
       .shadowRoot.querySelector("button")
@@ -628,9 +628,9 @@
 
     // Disconnect with a one-shot mint failure (covers mintInvite catch), then remint
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
-    thread = layout.shadowRoot.querySelector("dimim-chat-thread");
-    header = thread.shadowRoot.querySelector("dimim-chat-header");
-    menu = header.shadowRoot.querySelector("dimim-overflow-menu");
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    header = thread.shadowRoot.querySelector("dimui-chat-header");
+    menu = header.shadowRoot.querySelector("dimui-overflow-menu");
     var origCreate = peer.createInvite;
     var failedOnce = false;
     peer.createInvite = function () {
@@ -770,14 +770,14 @@
       return (
         layout &&
         layout.shadowRoot &&
-        layout.shadowRoot.querySelector("dimim-chat-thread")
+        layout.shadowRoot.querySelector("dimui-chat-thread")
       );
     }, "reconnected", 20000).catch(function () {
       return null;
     });
 
     if (thread) {
-      header = thread.shadowRoot.querySelector("dimim-chat-header");
+      header = thread.shadowRoot.querySelector("dimui-chat-header");
       var lockBtn = header.shadowRoot.querySelectorAll("dimui-icon-button");
       lockBtn[lockBtn.length - 1].shadowRoot.querySelector("button").click();
       expect(locked).toBe(true);

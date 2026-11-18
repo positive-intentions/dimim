@@ -12,15 +12,15 @@
 
   test("chat-thread empty and with messages", async function () {
     await BP.require("chat/components/organisms/chat-thread");
-    var empty = await mount("dimim-chat-thread", {
+    var empty = await mount("dimui-chat-thread", {
       theme: "dark",
       peer: { displayName: "Alex Rivera" },
       connected: false,
       messages: [],
     });
     expect(empty.shadowRoot.querySelector("dimui-empty-state")).toBeTruthy();
-    expect(empty.shadowRoot.querySelector("dimim-composer")).toBeTruthy();
-    expect(shadowText(empty.shadowRoot.querySelector("dimim-composer"))).toContain(
+    expect(empty.shadowRoot.querySelector("dimui-composer")).toBeTruthy();
+    expect(shadowText(empty.shadowRoot.querySelector("dimui-composer"))).toContain(
       "Wait for connection",
     );
 
@@ -28,7 +28,7 @@
     var cancelled = false;
     var accepted = false;
     var declined = false;
-    var filled = await mount("dimim-chat-thread", {
+    var filled = await mount("dimui-chat-thread", {
       theme: "light",
       peer: { displayName: "Alex Rivera" },
       connected: true,
@@ -60,12 +60,12 @@
       },
     });
     expect(
-      shadowText(filled.shadowRoot.querySelector("dimim-message-bubble")),
+      shadowText(filled.shadowRoot.querySelector("dimui-message-bubble")),
     ).toContain("Hello");
     expect(
-      shadowText(filled.shadowRoot.querySelector("dimim-chat-header")),
+      shadowText(filled.shadowRoot.querySelector("dimui-chat-header")),
     ).toContain("Alex Rivera");
-    var banner = filled.shadowRoot.querySelector("dimim-incoming-call-banner");
+    var banner = filled.shadowRoot.querySelector("dimui-incoming-call-banner");
     var buttons = banner.shadowRoot.querySelectorAll("dimui-button");
     buttons[0].shadowRoot.querySelector("button").click();
     buttons[1].shadowRoot.querySelector("button").click();
@@ -73,7 +73,7 @@
     expect(accepted).toBe(true);
     void cancelled;
 
-    var composer = filled.shadowRoot.querySelector("dimim-composer");
+    var composer = filled.shadowRoot.querySelector("dimui-composer");
     var ta = composer.shadowRoot.querySelector("textarea");
     ta.value = "ping";
     ta.dispatchEvent(new Event("input", { bubbles: true }));

@@ -37,7 +37,7 @@
     } catch (e) {}
 
     var unlocked = null;
-    var el = await mount("dimim-unlock", {
+    var el = await mount("dimui-unlock", {
       hasVault: false,
       theme: "light",
       onUnlock: function (password, opts) {
@@ -80,7 +80,7 @@
   test("unlock-screen existing vault unlock", async function () {
     await BP.require("chat/components/organisms/unlock-screen");
     var unlocked = null;
-    var el = await mount("dimim-unlock", {
+    var el = await mount("dimui-unlock", {
       hasVault: true,
       theme: "dark",
       error: "Wrong password.",

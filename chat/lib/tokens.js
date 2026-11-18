@@ -1,11 +1,14 @@
-BP.module("chat/lib/tokens", [], function () {
+BP.module("chat/lib/tokens", ["dimui/theme"], function (theme) {
   const { css } = Dim;
+  const { themeTokens } = theme;
 
   /**
-   * Theme CSS variables. Apply on themed roots only —
-   * a bare :host light block would wipe inherited dark mode on nested hosts.
+   * App aliases onto canonical dimui palette.
+   * Prefer --dimui-color-* in new code; --chat-* kept for existing styles.
    */
   const chatTokens = css`
+    ${themeTokens}
+
     :host {
       display: block;
       width: 100%;
@@ -13,50 +16,27 @@ BP.module("chat/lib/tokens", [], function () {
       height: 100%;
       color: var(--chat-text);
       font-family: "Segoe UI", system-ui, sans-serif;
-    }
 
-    :host([data-theme="light"]),
-    .meet-app[data-theme="light"],
-    .frame[data-theme="light"],
-    .meet-app:not([data-theme]),
-    .frame:not([data-theme]) {
-      --chat-bg: #f8fafc;
-      --chat-surface: #ffffff;
-      --chat-surface-2: #f1f5f9;
-      --chat-surface-hover: #e2e8f0;
-      --chat-border: #e2e8f0;
-      --chat-text: #0f172a;
-      --chat-text-muted: #475569;
-      --chat-text-faint: #94a3b8;
-      --chat-danger: #dc2626;
-      --chat-primary: #0284d4;
-      --chat-primary-soft: #e0f2fe;
-      --chat-bubble-out: #0284d4;
-      --chat-bubble-out-text: #ffffff;
-      --chat-bubble-in: #e2e8f0;
-      --chat-bubble-in-text: #0f172a;
-      --chat-ok: #16a34a;
-    }
-
-    :host([data-theme="dark"]),
-    .meet-app[data-theme="dark"],
-    .frame[data-theme="dark"] {
-      --chat-bg: #0f172a;
-      --chat-surface: #0b1220;
-      --chat-surface-2: #1e293b;
-      --chat-surface-hover: #334155;
-      --chat-border: #334155;
-      --chat-text: #e2e8f0;
-      --chat-text-muted: #94a3b8;
-      --chat-text-faint: #64748b;
-      --chat-danger: #f87171;
-      --chat-primary: #029cfd;
-      --chat-primary-soft: #1a3a5c;
-      --chat-bubble-out: #029cfd;
-      --chat-bubble-out-text: #0f172a;
-      --chat-bubble-in: #1e293b;
-      --chat-bubble-in-text: #e2e8f0;
-      --chat-ok: #4ade80;
+      --chat-bg: var(--dimui-color-bg);
+      --chat-surface: var(--dimui-color-surface-2);
+      --chat-surface-2: var(--dimui-color-surface);
+      --chat-surface-hover: var(--dimui-color-surface-hover);
+      --chat-border: var(--dimui-color-border);
+      --chat-text: var(--dimui-color-text);
+      --chat-text-muted: var(--dimui-color-text-muted);
+      --chat-text-faint: var(--dimui-color-text-faint);
+      --chat-danger: var(--dimui-color-danger);
+      --chat-primary: var(--dimui-color-primary);
+      --chat-primary-soft: color-mix(
+        in srgb,
+        var(--dimui-color-primary) 18%,
+        transparent
+      );
+      --chat-bubble-out: var(--dimui-bubble-out);
+      --chat-bubble-out-text: var(--dimui-bubble-out-text);
+      --chat-bubble-in: var(--dimui-bubble-in);
+      --chat-bubble-in-text: var(--dimui-bubble-in-text);
+      --chat-ok: var(--dimui-color-ok);
     }
 
     * {

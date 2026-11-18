@@ -32,7 +32,7 @@
       return Promise.reject(new Error("DimimE2E.openPeer: DimTest.open missing"));
     }
     var openOpts = {
-      ready: opts.ready || "dimim-unlock",
+      ready: opts.ready || "dimui-unlock",
       timeout: opts.timeout || 60000,
       seed: seedWithImpl(opts.seed),
     };
@@ -165,7 +165,7 @@
   }
 
   function createVault(page, password) {
-    return page.wait("dimim-unlock", 30000).then(function () {
+    return page.wait("dimui-unlock", 30000).then(function () {
       var fields = page.queryAll("dimui-text-field");
       return page
         .fill(fields[0], password)
@@ -212,8 +212,8 @@
   }
 
   function sendChat(page, body) {
-    return page.wait("dimim-composer", 30000).then(function () {
-      var composer = page.query("dimim-composer");
+    return page.wait("dimui-composer", 30000).then(function () {
+      var composer = page.query("dimui-composer");
       var ta = composer.shadowRoot.querySelector("textarea");
       ta.value = body;
       ta.dispatchEvent(new Event("input", { bubbles: true }));

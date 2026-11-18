@@ -67,7 +67,6 @@
     "./chat/components/molecules/incoming-call-banner.js",
     "./chat/components/molecules/qr-scanner.js",
     "./chat/components/molecules/share-code-panel.js",
-    "./chat/components/molecules/qr-scanner-overlay.js",
     "./chat/components/organisms/unlock-screen.js",
     "./chat/components/organisms/call-screen.js",
     "./chat/components/organisms/pairing-wizard.js",

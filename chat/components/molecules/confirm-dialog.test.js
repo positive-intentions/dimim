@@ -8,7 +8,7 @@
     await BP.require("chat/components/molecules/confirm-dialog");
     var confirmed = false;
     var cancelled = false;
-    var el = await mount("dimim-confirm-dialog", {
+    var el = await mount("dimui-confirm-dialog", {
       open: true,
       title: "Clear?",
       body: "Wipe messages",

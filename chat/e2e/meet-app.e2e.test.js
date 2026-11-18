@@ -10,8 +10,8 @@
       timeout: 60000,
     });
 
-    await page.wait("dimim-unlock", 30000);
-    expect(page.text("dimim-unlock")).toContain("Meet");
+    await page.wait("dimui-unlock", 30000);
+    expect(page.text("dimui-unlock")).toContain("Meet");
 
     var fields = page.queryAll("dimui-text-field");
     expect(fields.length).toBeGreaterThan(1);
@@ -62,6 +62,6 @@
     // Reload unlock by opening a fresh page with vault flag set is heavy;
     // assert invite UI is the handshake surface instead.
     expect(page.query("dimim-share-code-panel")).toBeTruthy();
-    expect(page.query("dimim-chat-thread")).toBe(null);
+    expect(page.query("dimui-chat-thread")).toBe(null);
   });
 })();

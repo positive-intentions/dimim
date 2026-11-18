@@ -110,10 +110,22 @@ BP.module("chat/lib/app-chrome", [], function () {
     return document.documentElement.dataset.dimRuntime || "js";
   }
 
-  function setImpl(next) {
-    var url = new URL(location.href);
+  function buildImplHref(next, href) {
+    var url = new URL(href || location.href);
     url.searchParams.set("impl", next);
-    location.href = url.toString();
+    return url.toString();
+  }
+
+  // Host chrome (app.js) installs the real navigator so unit tests can stub
+  // without triggering a full page reload under DimTest.
+  var navigateImpl = function (_href) {};
+
+  function setNavigateImpl(fn) {
+    navigateImpl = typeof fn === "function" ? fn : function (_href) {};
+  }
+
+  function setImpl(next) {
+    navigateImpl(buildImplHref(next));
   }
 
   function dispatchTheme(theme) {
@@ -128,6 +140,8 @@ BP.module("chat/lib/app-chrome", [], function () {
   return {
     shellStyles: shellStyles,
     currentImpl: currentImpl,
+    buildImplHref: buildImplHref,
+    setNavigateImpl: setNavigateImpl,
     setImpl: setImpl,
     dispatchTheme: dispatchTheme,
   };

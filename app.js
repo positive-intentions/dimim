@@ -26,6 +26,11 @@
   async function boot() {
     try {
       chrome = await BP.require("chat/lib/app-chrome");
+      if (chrome && chrome.setNavigateImpl) {
+        chrome.setNavigateImpl(function (href) {
+          location.href = href;
+        });
+      }
       themeApi = await BP.require("chat/lib/theme");
       var meet = await BP.require("chat/components/pages/meet-app");
       MeetApp = meet.MeetApp;

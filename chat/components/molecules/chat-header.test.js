@@ -9,7 +9,7 @@
     var voice = false;
     var video = false;
     var locked = false;
-    var el = await mount("dimim-chat-header", {
+    var el = await mount("dimui-chat-header", {
       peer: { displayName: "Alex Rivera", handle: "alex" },
       online: true,
       typing: true,

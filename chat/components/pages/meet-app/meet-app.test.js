@@ -114,7 +114,7 @@
     } catch (e) {}
 
     var el = await mount("dimim-meet-app", {});
-    var unlock = el.shadowRoot.querySelector("dimim-unlock");
+    var unlock = el.shadowRoot.querySelector("dimui-unlock");
     expect(Boolean(unlock)).toBe(true);
 
     var fields = unlock.shadowRoot.querySelectorAll("dimui-text-field");
@@ -174,7 +174,7 @@
     } catch (e) {}
 
     var el = await mount("dimim-meet-app", {});
-    var unlock = el.shadowRoot.querySelector("dimim-unlock");
+    var unlock = el.shadowRoot.querySelector("dimui-unlock");
     expect(Boolean(unlock)).toBe(true);
     var field = unlock.shadowRoot.querySelector("dimui-text-field");
     setTextField(field, "totally-wrong");
@@ -185,7 +185,7 @@
       .click();
 
     await waitFor(function () {
-      unlock = el.shadowRoot.querySelector("dimim-unlock");
+      unlock = el.shadowRoot.querySelector("dimui-unlock");
       return unlock && shadowText(unlock).indexOf("Wrong") >= 0 ? true : null;
     }, "wrong password error", 15000);
   });

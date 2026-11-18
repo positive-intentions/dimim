@@ -36,16 +36,16 @@
 
       await pageA.wait(function () {
         var text = pageA.text() || "";
-        if (pageA.query("dimim-chat-thread")) return true;
+        if (pageA.query("dimui-chat-thread")) return true;
         if (text.indexOf("Reply failed") >= 0) {
           throw new Error("A reply failed: " + text.slice(0, 200));
         }
         return null;
       }, 60000);
-      await pageB.wait("dimim-chat-thread", 60000);
+      await pageB.wait("dimui-chat-thread", 60000);
 
       await pageA.wait(function () {
-        var composer = pageA.query("dimim-composer");
+        var composer = pageA.query("dimui-composer");
         return composer && composer.shadowRoot && composer.shadowRoot.querySelector("textarea")
           ? true
           : null;
@@ -53,31 +53,31 @@
 
       await DimimE2E.sendChat(pageA, "ping-from-a");
       await pageB.wait(function () {
-        var t = pageB.text("dimim-chat-thread") || "";
+        var t = pageB.text("dimui-chat-thread") || "";
         return t.indexOf("ping-from-a") >= 0 ? true : null;
       }, 30000);
 
       await DimimE2E.sendChat(pageB, "pong-from-b");
       await pageA.wait(function () {
-        var t = pageA.text("dimim-chat-thread") || "";
+        var t = pageA.text("dimui-chat-thread") || "";
         return t.indexOf("pong-from-b") >= 0 ? true : null;
       }, 30000);
 
       // Optional call smoke (fake media flags in Playwright)
-      var header = pageA.query("dimim-chat-header");
+      var header = pageA.query("dimui-chat-header");
       if (header && header.shadowRoot) {
         var icons = header.shadowRoot.querySelectorAll("dimui-icon-button");
         if (icons.length > 1) {
           await pageA.click(icons[1]);
           await pageB.wait(function () {
-            return pageB.query("dimim-incoming-call-banner") ||
+            return pageB.query("dimui-incoming-call-banner") ||
               pageB.query("dimim-call-screen")
               ? true
               : null;
           }, 15000).catch(function () {
             return null;
           });
-          var banner = pageB.query("dimim-incoming-call-banner");
+          var banner = pageB.query("dimui-incoming-call-banner");
           if (banner && banner.shadowRoot) {
             var accept = banner.shadowRoot.querySelectorAll("dimui-button")[1];
             if (accept) await pageB.click(accept);
