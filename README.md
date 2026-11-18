@@ -83,7 +83,8 @@ dimim/
 ├── manifest.webmanifest
 └── chat/
     ├── e2e/          # helpers + single-iframe + two-iframe p2p
-    ├── lib/          # vault, peer, frames, pairing, messages, qr-payload
+    ├── lib/          # vault, peer, frames, pairing, messages, qr-payload,
+    │                 # share-code, app-chrome, shell/* controllers
     └── components/
         ├── atoms/    # proxies → remote dimui
         ├── molecules/

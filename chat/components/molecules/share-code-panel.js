@@ -6,14 +6,19 @@ BP.module(
     "chat/components/atoms/qr-code",
     "chat/lib/qr-payload",
     "chat/lib/qr-png",
+    "chat/lib/share-code",
     "dimui/lib/qr-decode",
   ],
-  function (button, textField, qrCode, qrPayload, qrPng, qrDecode) {
+  function (button, textField, qrCode, qrPayload, qrPng, shareCode, qrDecode) {
     const { define, css } = Dim;
     const { Button } = button;
     const { TextField } = textField;
     const { QrCode } = qrCode;
     const FILENAME = "connection-code.png";
+    const qrExport = shareCode.createQrExport({
+      qrPng: qrPng,
+      filename: FILENAME,
+    });
 
     const styles = css`
       :host {
@@ -92,17 +97,6 @@ BP.module(
         pointer-events: none;
       }
     `;
-
-    function findQrSvg(host) {
-      if (!host) return null;
-      try {
-        var qr = host.querySelector("dimui-qr-code");
-        if (!qr || !qr.shadowRoot) return null;
-        return qr.shadowRoot.querySelector("svg");
-      } catch (e) {
-        return null;
-      }
-    }
 
     const ShareCodePanel = define({
       tag: "dimim-share-code-panel",
@@ -189,73 +183,23 @@ BP.module(
         };
 
         const applyPaste = () => {
-          var live = paste;
-          try {
-            var row = pasteRowRef.current;
-            var field = row && row.querySelector("dimui-text-field");
-            var input =
-              field &&
-              field.shadowRoot &&
-              field.shadowRoot.querySelector("input, textarea");
-            if (input && String(input.value || "").length) {
-              live = input.value;
-            }
-          } catch (e) {}
+          var live = shareCode.readLivePaste(pasteRowRef.current, paste);
           setHint("");
           onPasteCode(live);
         };
 
-        const rasterize = async () => {
-          var svg = findQrSvg(panelRef.current);
-          if (!svg) {
-            setHint("QR isn’t ready yet. Wait a moment and try again.");
-            return null;
-          }
-          try {
-            return await qrPng.pngBlobFromSvg(svg, 512);
-          } catch (e) {
-            setHint("QR isn’t ready yet. Wait a moment and try again.");
-            return null;
-          }
-        };
-
         const saveQr = async () => {
-          if (!qrReady) {
-            setHint("QR isn’t ready yet. Wait a moment and try again.");
-            return;
-          }
-          setHint("");
-          var blob = await rasterize();
-          if (!blob) return;
-          var result = qrPng.downloadPng(blob, FILENAME);
-          if (result === "unsupported") {
-            setHint(
-              canShare
-                ? "Couldn’t save here — try Share QR Code instead."
-                : "Couldn’t save the QR here. Copy the code or take a screenshot.",
-            );
-          }
+          var result = await qrExport.save(
+            panelRef.current,
+            qrReady,
+            canShare,
+          );
+          setHint(result.hint || "");
         };
 
         const shareQr = async () => {
-          if (!qrReady) {
-            setHint("QR isn’t ready yet. Wait a moment and try again.");
-            return;
-          }
-          setHint("");
-          var blob = await rasterize();
-          if (!blob) return;
-          var result = await qrPng.sharePng(blob, FILENAME, "Meet code");
-          if (result === "abort") return;
-          if (result === "gesture") {
-            setHint("Tap Share QR Code again to continue.");
-            return;
-          }
-          if (result === "unsupported" || result === "fail") {
-            setHint(
-              "Couldn’t share the QR here. Try Save QR Code or copy the code.",
-            );
-          }
+          var result = await qrExport.share(panelRef.current, qrReady);
+          setHint(result.hint || "");
         };
 
         const pickUpload = () => {
@@ -269,17 +213,12 @@ BP.module(
           if (ev.target) ev.target.value = "";
           if (!file) return;
           setHint("");
-          var text = null;
-          try {
-            text = await qrDecode.decodeImageFile(file);
-          } catch (e) {
-            text = null;
-          }
-          if (text) {
-            onPasteCode(String(text));
+          var result = await shareCode.decodeUploadedQr(file, qrDecode);
+          if (result.text) {
+            onPasteCode(result.text);
             return;
           }
-          setHint("No QR code found in that image.");
+          setHint(result.hint || "");
         };
 
         return tpl`
