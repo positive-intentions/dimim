@@ -136,6 +136,8 @@ BP.module(
             : () => {};
         const onScan =
           typeof props.onScan === "function" ? props.onScan : () => {};
+        const onRemint =
+          typeof props.onRemint === "function" ? props.onRemint : null;
 
         const qrReady = Boolean(localCode && qrValue && !minting);
 
@@ -266,6 +268,18 @@ BP.module(
                   onClick: onScan,
                 }}"
               />
+              ${
+                onRemint
+                  ? tpl`<dimui-button
+                      .props="${{
+                        label: "New QR code",
+                        variant: "outlined",
+                        disabled: minting,
+                        onClick: onRemint,
+                      }}"
+                    />`
+                  : null
+              }
               <dimui-button
                 .props="${{
                   label: "Save QR Code",

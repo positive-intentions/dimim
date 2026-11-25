@@ -143,6 +143,7 @@ BP.module(
         const connectionRef = ref(null);
         const incomingFilesRef = ref({});
         const helloSentRef = ref(false);
+        const unpairingRef = ref(false);
         const applyingUrlRef = ref(false);
         const screenRef = ref(SCREENS.pair);
 
@@ -162,7 +163,6 @@ BP.module(
         screenRef.current = screen;
 
         void profileLoading;
-        void connectionLoading;
         void mediaTick;
         const loading = vaultLoading || messagesLoading;
         const isSaving = Boolean(
@@ -329,6 +329,7 @@ BP.module(
           setMinting,
           setIncomingOpen,
           helloSentRef,
+          unpairingRef,
           endCall: calls.endCall,
         });
 
@@ -343,13 +344,22 @@ BP.module(
           handleInboundFileFrame: files.handleInboundFileFrame,
         });
 
+        const handlePeerClosed = () => {
+          helloSentRef.current = false;
+          if (unpairingRef.current) return;
+          const cur = getConnection();
+          // Only unpair after a completed handshake. ICE/PC failures during
+          // minting or connecting must not wipe a live invite/reply QR.
+          if (cur.phase !== PHASES.connected) return;
+          pairingApi.handleDisconnect();
+          writeUrl(SCREENS.pair, "replace");
+        };
+
         effect(() => {
           peer.setHandlers({
             onMessage: handleFrame,
             onOpen: pairingApi.sendHello,
-            onClose: function () {
-              helloSentRef.current = false;
-            },
+            onClose: handlePeerClosed,
             onTrack: function () {
               bumpMedia();
             },
@@ -359,6 +369,17 @@ BP.module(
             helloSentRef.current = false;
           };
         }, []);
+
+        // Persisted connected without a live data channel → unpair + remint.
+        effect(() => {
+          if (!ready || loading || connectionLoading) return undefined;
+          const cur = connectionRef.current || connectionValue;
+          if (cur.phase === PHASES.connected && !peer.isOpen()) {
+            pairingApi.handleDisconnect();
+            writeUrl(SCREENS.pair, "replace");
+          }
+          return undefined;
+        }, [ready, loading, connectionLoading, connectionValue.phase]);
 
         // Drive screen from router pathname (hash → UI).
         effect(() => {
@@ -384,6 +405,14 @@ BP.module(
           }
           return undefined;
         }, [ready, loading, connectionValue.phase, connectionValue.peer]);
+
+        // Pair screen without a live RTC session → mint a fresh invite.
+        effect(() => {
+          if (!ready || loading || connectionLoading) return undefined;
+          if (screen !== SCREENS.pair) return undefined;
+          pairingApi.ensureFreshInvite();
+          return undefined;
+        }, [ready, loading, connectionLoading, screen, connectionValue.phase]);
 
         const handleSend = (text) => {
           if (!canCompose(getConnection())) return;
@@ -469,6 +498,7 @@ BP.module(
                     minting,
                     onProfileContinue: pairingApi.handleProfileContinue,
                     onPasteCode: pairingApi.handlePasteCode,
+                    onRemint: () => pairingApi.mintInvite(getProfile()),
                     onEditProfile: profileValue.completed ? openProfile : null,
                   },
                   threadProps: {

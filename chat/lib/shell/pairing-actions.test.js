@@ -30,8 +30,10 @@
     };
     var helloSentRef = { current: false };
     var peer = {
+      _hasSession: false,
       setIcePreset: function () {},
       createInvite: function () {
+        peer._hasSession = true;
         return Promise.resolve("wu1:offer");
       },
       parseBundle: function (code) {
@@ -41,12 +43,18 @@
         return { type: "unknown" };
       },
       acceptInvite: function () {
+        peer._hasSession = true;
         return Promise.resolve("wu1:answer");
       },
       acceptReply: function () {
         return Promise.resolve();
       },
-      reset: function () {},
+      reset: function () {
+        peer._hasSession = false;
+      },
+      status: function () {
+        return { hasSession: peer._hasSession };
+      },
     };
     var deps = {
       peer: peer,
@@ -186,6 +194,7 @@
     expect(ctx.helloSentRef.current).toBe(true);
 
     ctx.peer.createInvite = function () {
+      ctx.peer._hasSession = true;
       return Promise.resolve("wu1:remint");
     };
     api.handleDisconnect();
@@ -193,5 +202,80 @@
     expect(ctx.state.ended).toBe(1);
     expect(ctx.state.incomingOpen).toBe(false);
     expect(ctx.helloSentRef.current).toBe(false);
+    expect(ctx.state.connection.phase).toBe("shareInvite");
+    expect(ctx.state.connection.localCode).toBe("wu1:remint");
+  });
+
+  test("pairing-actions ensureFreshInvite guards and remint", async function () {
+    var mod = await BP.require("chat/lib/shell/pairing-actions");
+    var ctx = makeDeps();
+    var api = mod.createPairingActions(ctx.deps);
+    var mintCount = 0;
+    ctx.peer.createInvite = function () {
+      mintCount += 1;
+      ctx.peer._hasSession = true;
+      return Promise.resolve("wu1:fresh-" + mintCount);
+    };
+
+    expect(api.ensureFreshInvite()).toBe(false);
+
+    ctx.state.profile.completed = true;
+    ctx.state.connection.phase = "shareInvite";
+    ctx.state.connection.localCode = "wu1:stale";
+    ctx.peer._hasSession = false;
+    expect(api.ensureFreshInvite()).toBe(true);
+    await sleep(20);
+    expect(mintCount).toBe(1);
+    expect(ctx.state.connection.localCode).toBe("wu1:fresh-1");
+
+    expect(api.ensureFreshInvite()).toBe(false);
+    expect(mintCount).toBe(1);
+
+    ctx.peer._hasSession = false;
+    ctx.state.minting = false;
+    ctx.peer.createInvite = function () {
+      mintCount += 1;
+      return new Promise(function () {});
+    };
+    expect(api.ensureFreshInvite()).toBe(true);
+    expect(mintCount).toBe(2);
+    expect(api.ensureFreshInvite()).toBe(false);
+
+    var ctx2 = makeDeps();
+    var api2 = mod.createPairingActions(ctx2.deps);
+    var disconnectMints = 0;
+    ctx2.state.profile.completed = true;
+    ctx2.state.connection = {
+      phase: "connected",
+      peer: { id: "bo", displayName: "Bo", handle: "bo" },
+      localCode: "wu1:old",
+      statusBanner: "",
+      role: "offerer",
+    };
+    ctx2.peer._hasSession = false;
+    ctx2.peer.createInvite = function () {
+      disconnectMints += 1;
+      ctx2.peer._hasSession = true;
+      return Promise.resolve("wu1:after-disconnect");
+    };
+    expect(api2.ensureFreshInvite()).toBe(true);
+    await sleep(20);
+    expect(ctx2.state.ended).toBe(1);
+    expect(ctx2.state.connection.phase).toBe("shareInvite");
+    expect(ctx2.state.connection.peer).toBe(null);
+    expect(ctx2.state.connection.localCode).toBe("wu1:after-disconnect");
+    expect(disconnectMints).toBe(1);
+
+    var ctx3 = makeDeps();
+    var unpairingRef = { current: false };
+    ctx3.deps.unpairingRef = unpairingRef;
+    var api3 = mod.createPairingActions(ctx3.deps);
+    ctx3.state.connection.phase = "connected";
+    ctx3.peer.createInvite = function () {
+      return Promise.resolve("wu1:x");
+    };
+    unpairingRef.current = true;
+    api3.handleDisconnect();
+    expect(ctx3.state.ended).toBe(0);
   });
 })();

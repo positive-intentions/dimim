@@ -121,6 +121,7 @@
   };
   MockRTCPeerConnection.prototype.close = function () {
     this.connectionState = "closed";
+    if (this.onconnectionstatechange) this.onconnectionstatechange();
   };
 
   var VALID_OFFER = JSON.stringify({

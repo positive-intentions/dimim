@@ -63,6 +63,7 @@
 
     var pasted = null;
     var scanned = false;
+    var reminted = 0;
     var el = await mount("dimim-share-code-panel", {
       localCode: "wu1:testdemo",
       onPasteCode: function (code) {
@@ -70,6 +71,9 @@
       },
       onScan: function () {
         scanned = true;
+      },
+      onRemint: function () {
+        reminted += 1;
       },
     });
     expect(shadowText(el)).toContain("wu1:testdemo");
@@ -85,7 +89,11 @@
 
     expect(Boolean(findButton(el, "Save QR Code"))).toBe(true);
     expect(Boolean(findButton(el, "Upload QR Code"))).toBe(true);
+    expect(Boolean(findButton(el, "New QR code"))).toBe(true);
     expect(findButton(el, "Share QR Code")).toBe(undefined);
+
+    clickButton(el, "New QR code");
+    expect(reminted).toBe(1);
 
     clickButton(el, "Scan their code");
     expect(scanned).toBe(true);
@@ -144,8 +152,21 @@
     var minting = await mount("dimim-share-code-panel", {
       localCode: "",
       minting: true,
+      onRemint: function () {},
     });
     expect(shadowText(minting)).toContain("Minting invite");
+    var mintingRemint = findButton(minting, "New QR code");
+    expect(Boolean(mintingRemint)).toBe(true);
+    expect(
+      Boolean(
+        mintingRemint.shadowRoot.querySelector("button").disabled,
+      ),
+    ).toBe(true);
+
+    var noRemint = await mount("dimim-share-code-panel", {
+      localCode: "wu1:x",
+    });
+    expect(findButton(noRemint, "New QR code")).toBe(undefined);
 
     var payload = await BP.require("chat/lib/qr-payload");
     var origForQr = payload.forQr;

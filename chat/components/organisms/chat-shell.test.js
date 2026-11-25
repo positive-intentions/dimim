@@ -172,6 +172,7 @@
   };
   MockRTCPeerConnection.prototype.close = function () {
     this.connectionState = "closed";
+    if (this.onconnectionstatechange) this.onconnectionstatechange();
   };
 
   function installRtc() {
@@ -1167,6 +1168,249 @@
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
     expect(layout.shadowRoot.querySelector("dimim-pairing-wizard")).toBeTruthy();
 
+    peer.reset();
+    resetHash();
+  });
+
+  test("chat-shell remote disconnect remints and returns to pair", async function () {
+    resetHash();
+    installRtc();
+    await BP.require("chat/components/organisms/chat-shell");
+    var peer = await BP.require("chat/lib/peer");
+    var frames = await BP.require("chat/lib/frames");
+    var hashApi = await BP.require("dimurl/hash");
+    peer.setIceWaitMs(10);
+    peer.reset();
+
+    var vault = await BP.require("chat/lib/vault");
+    try {
+      localStorage.removeItem(vault.VAULT_FLAG);
+    } catch (e) {}
+
+    var mintCount = 0;
+    var origCreate = peer.createInvite;
+    peer.createInvite = function () {
+      mintCount += 1;
+      return origCreate.apply(this, arguments);
+    };
+
+    var el = await mount("dimim-chat-shell", {
+      password: "pass-remote-dc",
+      create: true,
+      theme: "dark",
+      onLock: function () {},
+      onUnlockFailed: function () {},
+    });
+
+    var layout = await waitShellReady(el);
+    var wizard = await waitFor(function () {
+      return layout.shadowRoot && layout.shadowRoot.querySelector("dimim-pairing-wizard");
+    }, "pairing wizard");
+
+    var fields = wizard.shadowRoot.querySelectorAll("dimui-text-field");
+    setTextField(fields[0], "Ada");
+    setTextField(fields[1], "ada");
+    await flush(wizard);
+    wizard.shadowRoot
+      .querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await flush(el);
+
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      wizard =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard");
+      var panel =
+        wizard && wizard.shadowRoot.querySelector("dimim-share-code-panel");
+      var code =
+        panel && panel.shadowRoot.querySelector("[data-invite-code]");
+      var v = code && code.getAttribute("data-invite-code");
+      return v && v.indexOf("wu1:") === 0 ? v : null;
+    }, "invite minted");
+    expect(mintCount >= 1).toBe(true);
+    var mintsBeforeClose = mintCount;
+
+    var panel = wizard.shadowRoot.querySelector("dimim-share-code-panel");
+    var pasteField = panel.shadowRoot.querySelector("dimui-text-field");
+    var usePaste = Array.prototype.find.call(
+      panel.shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("Use pasted") >= 0;
+      },
+    );
+    setTextField(
+      pasteField,
+      JSON.stringify({
+        type: "answer",
+        sdp: "v=0\r\no=- 2 1 IN IP4 127.0.0.1\r\n",
+        ice: [],
+      }),
+    );
+    usePaste.shadowRoot.querySelector("button").click();
+    await sleep(100);
+    openDc();
+    inject(frames.hello({ displayName: "Bo", handle: "bo" }));
+
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-chat-thread")
+      );
+    }, "chat after hello");
+    expect(hashApi.read().pathname).toBe("/chat");
+
+    var dc = lastPc && lastPc._dc;
+    expect(Boolean(dc)).toBe(true);
+    dc.close();
+
+    wizard = await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "pairing after remote close");
+    expect(hashApi.read().pathname).toBe("/pair");
+
+    await waitFor(function () {
+      return mintCount > mintsBeforeClose ? true : null;
+    }, "remint after remote close");
+    await waitFor(function () {
+      return peer.status().hasSession ? true : null;
+    }, "live session after remint");
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      wizard =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard");
+      var text = wizard ? shadowText(wizard) : "";
+      return text.indexOf("Share your invite") >= 0 ? true : null;
+    }, "share invite after remote close");
+
+    peer.createInvite = origCreate;
+    peer.reset();
+    resetHash();
+  });
+
+  test("chat-shell remints when pair remounts without live session", async function () {
+    resetHash();
+    installRtc();
+    await BP.require("chat/components/organisms/chat-shell");
+    var peer = await BP.require("chat/lib/peer");
+    var hashApi = await BP.require("dimurl/hash");
+    peer.setIceWaitMs(10);
+    peer.reset();
+
+    var vault = await BP.require("chat/lib/vault");
+    try {
+      localStorage.removeItem(vault.VAULT_FLAG);
+    } catch (e) {}
+
+    var mintCount = 0;
+    var origCreate = peer.createInvite;
+    peer.createInvite = function () {
+      mintCount += 1;
+      return origCreate.apply(this, arguments);
+    };
+
+    var el = await mount("dimim-chat-shell", {
+      password: "pass-remint-pair",
+      create: true,
+      theme: "dark",
+      onLock: function () {},
+      onUnlockFailed: function () {},
+    });
+
+    var layout = await waitShellReady(el);
+    var wizard = await waitFor(function () {
+      return layout.shadowRoot && layout.shadowRoot.querySelector("dimim-pairing-wizard");
+    }, "pairing wizard");
+
+    var fields = wizard.shadowRoot.querySelectorAll("dimui-text-field");
+    setTextField(fields[0], "Ada");
+    setTextField(fields[1], "ada");
+    await flush(wizard);
+    wizard.shadowRoot
+      .querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await flush(el);
+
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      wizard =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard");
+      var panel =
+        wizard && wizard.shadowRoot.querySelector("dimim-share-code-panel");
+      var code =
+        panel && panel.shadowRoot.querySelector("[data-invite-code]");
+      var v = code && code.getAttribute("data-invite-code");
+      return v && v.indexOf("wu1:") === 0 ? v : null;
+    }, "first invite");
+    expect(mintCount >= 1).toBe(true);
+    var mintsBefore = mintCount;
+
+    var remintBtn = Array.prototype.find.call(
+      wizard.shadowRoot
+        .querySelector("dimim-share-code-panel")
+        .shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("New QR code") >= 0;
+      },
+    );
+    expect(Boolean(remintBtn)).toBe(true);
+
+    var edit = Array.prototype.find.call(
+      wizard.shadowRoot.querySelectorAll("button"),
+      function (b) {
+        return (b.textContent || "").indexOf("Edit profile") >= 0;
+      },
+    );
+    expect(Boolean(edit)).toBe(true);
+    edit.click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-profile")
+      );
+    }, "profile overlay");
+
+    peer.reset();
+    expect(peer.status().hasSession).toBe(false);
+
+    layout.shadowRoot
+      .querySelector("dimui-profile")
+      .shadowRoot.querySelector("dimui-icon-button")
+      .shadowRoot.querySelector("button")
+      .click();
+
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "back to pair");
+    expect(hashApi.read().pathname).toBe("/pair");
+
+    await waitFor(function () {
+      return mintCount > mintsBefore ? true : null;
+    }, "fresh invite after session loss");
+    expect(peer.status().hasSession).toBe(true);
+
+    peer.createInvite = origCreate;
     peer.reset();
     resetHash();
   });

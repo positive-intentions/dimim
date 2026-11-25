@@ -143,6 +143,8 @@ BP.module(
           typeof props.onEditProfile === "function"
             ? props.onEditProfile
             : null;
+        const onRemint =
+          typeof props.onRemint === "function" ? props.onRemint : null;
 
         const submitProfile = () => {
           setError("");
@@ -236,6 +238,8 @@ BP.module(
                               ? () => {}
                               : onPasteCode,
                           onScan: () => setScannerOpen(true),
+                          onRemint:
+                            phase === "shareInvite" ? onRemint : null,
                         }}"
                       />
                     `

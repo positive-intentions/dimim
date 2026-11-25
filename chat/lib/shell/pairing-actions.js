@@ -26,16 +26,31 @@ BP.module(
      *   setMinting: Function,
      *   setIncomingOpen: Function,
      *   helloSentRef: { current: boolean },
+     *   unpairingRef?: { current: boolean },
      *   endCall: Function
      * }} deps
      */
     function createPairingActions(deps) {
+      var mintingInFlight = false;
+
+      function peerHasSession() {
+        try {
+          var status = deps.peer.status && deps.peer.status();
+          return !!(status && status.hasSession);
+        } catch (e) {
+          return false;
+        }
+      }
+
       function mintInvite(nextProfile) {
+        if (mintingInFlight) return;
+        mintingInFlight = true;
         deps.setMinting(true);
         deps.peer.setIcePreset(nextProfile.icePreset || "public");
         deps.peer
           .createInvite()
           .then(function (code) {
+            mintingInFlight = false;
             var cur = deps.getConnection();
             deps.setConnection({
               ...withInviteCode(cur, code),
@@ -44,6 +59,7 @@ BP.module(
             deps.setMinting(false);
           })
           .catch(function (err) {
+            mintingInFlight = false;
             deps.setMinting(false);
             var cur = deps.getConnection();
             deps.setConnection({
@@ -53,6 +69,29 @@ BP.module(
                 (err && err.message ? err.message : String(err)),
             });
           });
+      }
+
+      /**
+       * Mint a new invite when the pair screen needs a live RTC session.
+       * Skips when minting, profile incomplete, or a live PC already exists.
+       * Stale connected/connecting without a PC uses full disconnect.
+       * @returns {boolean} true if a mint/disconnect was started
+       */
+      function ensureFreshInvite() {
+        var profile = deps.getProfile();
+        if (!profile || !profile.completed) return false;
+        if (mintingInFlight) return false;
+        if (peerHasSession()) return false;
+        var cur = deps.getConnection();
+        if (
+          cur.phase === PHASES.connected ||
+          cur.phase === PHASES.connecting
+        ) {
+          handleDisconnect();
+          return true;
+        }
+        mintInvite(profile);
+        return true;
       }
 
       function handleProfileContinue(fields) {
@@ -184,17 +223,24 @@ BP.module(
       }
 
       function handleDisconnect() {
-        deps.endCall();
-        deps.setIncomingOpen(false);
-        deps.helloSentRef.current = false;
-        deps.peer.reset();
-        var next = disconnect(deps.getConnection(), "");
-        deps.setConnection(next);
-        mintInvite(deps.getProfile());
+        if (deps.unpairingRef && deps.unpairingRef.current) return;
+        if (deps.unpairingRef) deps.unpairingRef.current = true;
+        try {
+          deps.endCall();
+          deps.setIncomingOpen(false);
+          deps.helloSentRef.current = false;
+          deps.peer.reset();
+          var next = disconnect(deps.getConnection(), "");
+          deps.setConnection(next);
+          mintInvite(deps.getProfile());
+        } finally {
+          if (deps.unpairingRef) deps.unpairingRef.current = false;
+        }
       }
 
       return {
         mintInvite: mintInvite,
+        ensureFreshInvite: ensureFreshInvite,
         handleProfileContinue: handleProfileContinue,
         handlePasteCode: handlePasteCode,
         sendHello: sendHello,

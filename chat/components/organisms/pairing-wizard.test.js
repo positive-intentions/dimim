@@ -54,6 +54,7 @@
 
     var pasted = null;
     var editClicked = false;
+    var reminted = 0;
     var share = await mount("dimim-pairing-wizard", {
       theme: "light",
       phase: "shareInvite",
@@ -65,6 +66,9 @@
         pasted = code;
         return { ok: true };
       },
+      onRemint: function () {
+        reminted += 1;
+      },
       onEditProfile: function () {
         editClicked = true;
       },
@@ -75,6 +79,15 @@
     expect(editClicked).toBe(true);
     var panel = share.shadowRoot.querySelector("dimim-share-code-panel");
     expect(shadowText(panel)).toContain("wu1:share");
+    var remintBtn = Array.prototype.find.call(
+      panel.shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("New QR code") >= 0;
+      },
+    );
+    expect(Boolean(remintBtn)).toBe(true);
+    remintBtn.shadowRoot.querySelector("button").click();
+    expect(reminted).toBe(1);
 
     var connecting = await mount("dimim-pairing-wizard", {
       phase: "connecting",
@@ -88,8 +101,19 @@
       localCode: "wu1:reply",
       profile: { displayName: "Bo", handle: "bo" },
       onPasteCode: function () {},
+      onRemint: function () {
+        reminted += 1;
+      },
     });
     expect(shadowText(reply)).toContain("Share your reply");
+    var replyPanel = reply.shadowRoot.querySelector("dimim-share-code-panel");
+    var replyRemint = Array.prototype.find.call(
+      replyPanel.shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("New QR code") >= 0;
+      },
+    );
+    expect(replyRemint).toBe(undefined);
 
     var shareScan = await mount("dimim-pairing-wizard", {
       phase: "shareInvite",
