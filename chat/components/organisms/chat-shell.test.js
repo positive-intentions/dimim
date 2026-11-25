@@ -305,10 +305,22 @@
     var hashApi = await BP.require("dimurl/hash");
     expect(hashApi.read().pathname).toBe("/chat");
 
+    // #/pair while connected → bounce back to chat
+    hashApi.replace("/pair");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return hashApi.read().pathname === "/chat" ? true : null;
+    }, "pair while connected → chat");
+    layout = el.shadowRoot.querySelector("dimim-meet-layout");
+    expect(
+      Boolean(layout.shadowRoot.querySelector("dimui-chat-thread")),
+    ).toBe(true);
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+
     // Peer click → contact screen
     var header = thread.shadowRoot.querySelector("dimui-chat-header");
     var peerBtn = header.shadowRoot.querySelector("button.peer.clickable");
-    expect(peerBtn).toBeTruthy();
+    expect(Boolean(peerBtn)).toBe(true);
     peerBtn.click();
     await waitFor(function () {
       layout = el.shadowRoot.querySelector("dimim-meet-layout");
@@ -1295,6 +1307,119 @@
     }, "share invite after remote close");
 
     peer.createInvite = origCreate;
+    peer.reset();
+    resetHash();
+  });
+
+  test("chat-shell boot remints persisted connected without live dc", async function () {
+    resetHash();
+    installRtc();
+    await BP.require("chat/components/organisms/chat-shell");
+    var peer = await BP.require("chat/lib/peer");
+    var frames = await BP.require("chat/lib/frames");
+    var hashApi = await BP.require("dimurl/hash");
+    peer.setIceWaitMs(10);
+    peer.reset();
+
+    var vault = await BP.require("chat/lib/vault");
+    try {
+      localStorage.removeItem(vault.VAULT_FLAG);
+    } catch (e) {}
+
+    var password = "pass-stale-connected";
+    var el = await mount("dimim-chat-shell", {
+      password: password,
+      create: true,
+      theme: "dark",
+      onLock: function () {},
+      onUnlockFailed: function () {},
+    });
+
+    var layout = await waitShellReady(el);
+    var wizard = await waitFor(function () {
+      return layout.shadowRoot && layout.shadowRoot.querySelector("dimim-pairing-wizard");
+    }, "pairing wizard");
+    var fields = wizard.shadowRoot.querySelectorAll("dimui-text-field");
+    setTextField(fields[0], "Ada");
+    setTextField(fields[1], "ada");
+    await flush(wizard);
+    wizard.shadowRoot
+      .querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await flush(el);
+
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      wizard =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard");
+      var panel =
+        wizard && wizard.shadowRoot.querySelector("dimim-share-code-panel");
+      var code =
+        panel && panel.shadowRoot.querySelector("[data-invite-code]");
+      var v = code && code.getAttribute("data-invite-code");
+      return v && v.indexOf("wu1:") === 0 ? v : null;
+    }, "invite");
+
+    var panel = wizard.shadowRoot.querySelector("dimim-share-code-panel");
+    var pasteField = panel.shadowRoot.querySelector("dimui-text-field");
+    var usePaste = Array.prototype.find.call(
+      panel.shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("Use pasted") >= 0;
+      },
+    );
+    setTextField(
+      pasteField,
+      JSON.stringify({
+        type: "answer",
+        sdp: "v=0\r\no=- 2 1 IN IP4 127.0.0.1\r\n",
+        ice: [],
+      }),
+    );
+    usePaste.shadowRoot.querySelector("button").click();
+    await sleep(100);
+    openDc();
+    inject(frames.hello({ displayName: "Bo", handle: "bo" }));
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-chat-thread")
+      );
+    }, "connected chat");
+
+    // Persist connected vault, then remount without a live PC.
+    await sleep(400);
+    if (DimTest.clearFixture) DimTest.clearFixture();
+    peer.reset();
+    resetHash();
+    await sleep(100);
+
+    el = await mount("dimim-chat-shell", {
+      password: password,
+      create: false,
+      theme: "dark",
+      onLock: function () {},
+      onUnlockFailed: function () {},
+    });
+    layout = await waitShellReady(el);
+    wizard = await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "pair after stale boot");
+    expect(hashApi.read().pathname).toBe("/pair");
+    await waitFor(function () {
+      return peer.status().hasSession ? true : null;
+    }, "remint on stale boot");
+
     peer.reset();
     resetHash();
   });

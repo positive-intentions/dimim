@@ -232,13 +232,24 @@
     expect(mintCount).toBe(1);
 
     ctx.peer._hasSession = false;
+    ctx.peer.status = function () {
+      throw new Error("status boom");
+    };
+    expect(api.ensureFreshInvite()).toBe(true);
+    await sleep(20);
+    expect(mintCount).toBe(2);
+    ctx.peer.status = function () {
+      return { hasSession: ctx.peer._hasSession };
+    };
+
+    ctx.peer._hasSession = false;
     ctx.state.minting = false;
     ctx.peer.createInvite = function () {
       mintCount += 1;
       return new Promise(function () {});
     };
     expect(api.ensureFreshInvite()).toBe(true);
-    expect(mintCount).toBe(2);
+    expect(mintCount).toBe(3);
     expect(api.ensureFreshInvite()).toBe(false);
 
     var ctx2 = makeDeps();
