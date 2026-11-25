@@ -1296,15 +1296,54 @@
     await waitFor(function () {
       return peer.status().hasSession ? true : null;
     }, "live session after remint");
+
+    // Stale connected without onClose still unpairs via the shell effect.
+    var panel2 = wizard.shadowRoot.querySelector("dimim-share-code-panel");
+    var paste2 = panel2.shadowRoot.querySelector("dimui-text-field");
+    var use2 = Array.prototype.find.call(
+      panel2.shadowRoot.querySelectorAll("dimui-button"),
+      function (b) {
+        return (b.shadowRoot.textContent || "").indexOf("Use pasted") >= 0;
+      },
+    );
+    setTextField(
+      paste2,
+      JSON.stringify({
+        type: "answer",
+        sdp: "v=0\r\no=- 3 1 IN IP4 127.0.0.1\r\n",
+        ice: [],
+      }),
+    );
+    use2.shadowRoot.querySelector("button").click();
+    await sleep(100);
+    openDc();
+    inject(frames.hello({ displayName: "Cy", handle: "cy" }));
     await waitFor(function () {
       layout = el.shadowRoot.querySelector("dimim-meet-layout");
-      wizard =
+      return (
         layout &&
         layout.shadowRoot &&
-        layout.shadowRoot.querySelector("dimim-pairing-wizard");
-      var text = wizard ? shadowText(wizard) : "";
-      return text.indexOf("Share your invite") >= 0 ? true : null;
-    }, "share invite after remote close");
+        layout.shadowRoot.querySelector("dimui-chat-thread")
+      );
+    }, "reconnected for stale effect");
+    var mintsBeforeStale = mintCount;
+    var staleDc = lastPc._dc;
+    staleDc.onclose = null;
+    staleDc.readyState = "closed";
+    expect(peer.isOpen()).toBe(false);
+    hashApi.replace("/profile");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return mintCount > mintsBeforeStale ? true : null;
+    }, "remint from stale-connected effect");
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "pair after stale-connected effect");
 
     peer.createInvite = origCreate;
     peer.reset();

@@ -370,17 +370,6 @@ BP.module(
           };
         }, []);
 
-        // Persisted connected without a live data channel → unpair + remint.
-        effect(() => {
-          if (!ready || loading || connectionLoading) return undefined;
-          const cur = connectionRef.current || connectionValue;
-          if (cur.phase === PHASES.connected && !peer.isOpen()) {
-            pairingApi.handleDisconnect();
-            writeUrl(SCREENS.pair, "replace");
-          }
-          return undefined;
-        }, [ready, loading, connectionLoading, connectionValue.phase]);
-
         // Drive screen from router pathname (hash → UI).
         effect(() => {
           if (!ready || loading) return undefined;
@@ -406,11 +395,18 @@ BP.module(
           return undefined;
         }, [ready, loading, connectionValue.phase, connectionValue.peer]);
 
-        // Pair screen without a live RTC session → mint a fresh invite.
+        // Stale connected (no live DC) → unpair. Pair without a live PC → remint.
         effect(() => {
           if (!ready || loading || connectionLoading) return undefined;
-          if (screen !== SCREENS.pair) return undefined;
-          pairingApi.ensureFreshInvite();
+          const cur = connectionRef.current || connectionValue;
+          if (cur.phase === PHASES.connected && !peer.isOpen()) {
+            pairingApi.handleDisconnect();
+            writeUrl(SCREENS.pair, "replace");
+            return undefined;
+          }
+          if (screen === SCREENS.pair) {
+            pairingApi.ensureFreshInvite();
+          }
           return undefined;
         }, [ready, loading, connectionLoading, screen, connectionValue.phase]);
 
