@@ -92,6 +92,22 @@ BP.module(
         padding: 1.5rem 0.5rem;
         color: var(--chat-text-muted);
       }
+
+      .edit-profile {
+        margin-top: 1rem;
+        text-align: center;
+      }
+
+      .edit-profile button {
+        border: none;
+        background: transparent;
+        color: var(--chat-primary);
+        font: inherit;
+        font-size: 0.875rem;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0.25rem;
+      }
     `;
 
     const PairingWizard = define({
@@ -123,6 +139,10 @@ BP.module(
           typeof props.onPasteCode === "function"
             ? props.onPasteCode
             : () => {};
+        const onEditProfile =
+          typeof props.onEditProfile === "function"
+            ? props.onEditProfile
+            : null;
 
         const submitProfile = () => {
           setError("");
@@ -226,6 +246,17 @@ BP.module(
                   ? tpl`
                       <h1>Connecting</h1>
                       <div class="connecting">Waiting for the data channel…</div>
+                    `
+                  : null
+              }
+              ${
+                onEditProfile && phase !== "profile"
+                  ? tpl`
+                      <div class="edit-profile">
+                        <button type="button" @click="${onEditProfile}">
+                          Edit profile
+                        </button>
+                      </div>
                     `
                   : null
               }

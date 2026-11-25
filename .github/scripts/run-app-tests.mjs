@@ -11,8 +11,12 @@
  * forwarded as ?dimLib= (needed until Pages ships DimParse-in-cover).
  *
  * Optional DIMUI_SRC — absolute dimui src URL with trailing slash, e.g.
- *   http://127.0.0.1:4174/src/
+ *   http://127.0.0.1:5173/src/
  * forwarded as ?dimuiSrc= (local unpublished atoms before Pages deploy).
+ *
+ * Optional DIMURL_SRC — absolute dimurl src URL with trailing slash, e.g.
+ *   http://127.0.0.1:5180/src/
+ * forwarded as ?dimurlSrc=.
  *
  * Playwright is resolved from node_modules, or from NODE_PATH (CI installs
  * into a throwaway directory so this repo stays package.json-free).
@@ -37,12 +41,14 @@ const BASE = process.env.BASE_URL || "http://127.0.0.1:4173";
 const TIMEOUT_MS = Number(process.env.DIM_TEST_TIMEOUT_MS || 180000);
 const DIM_LIB = (process.env.DIM_LIB || "").trim();
 const DIMUI_SRC = (process.env.DIMUI_SRC || "").trim();
+const DIMURL_SRC = (process.env.DIMURL_SRC || "").trim();
 
 function buildUrl(impl) {
   const u = new URL(`${BASE}/runTests.html`);
   u.searchParams.set("impl", impl);
   if (DIM_LIB) u.searchParams.set("dimLib", DIM_LIB);
   if (DIMUI_SRC) u.searchParams.set("dimuiSrc", DIMUI_SRC);
+  if (DIMURL_SRC) u.searchParams.set("dimurlSrc", DIMURL_SRC);
   return u.toString();
 }
 

@@ -12,7 +12,11 @@ BP.module(
     "chat/lib/shell/pairing-actions",
     "chat/lib/shell/file-transfer",
     "chat/lib/shell/call-session",
+    "chat/lib/meet-url",
     "chat/components/templates/meet-layout",
+    "dimurl/components/router",
+    "dimurl/components/route",
+    "dimurl/hooks/use-params",
   ],
   function (
     tokens,
@@ -26,7 +30,11 @@ BP.module(
     pairingActionsLib,
     fileTransferLib,
     callSessionLib,
+    meetUrl,
     layout,
+    routerMod,
+    routeMod,
+    paramsMod,
   ) {
     const { define, css } = Dim;
     const { chatTokens } = tokens;
@@ -34,6 +42,7 @@ BP.module(
     const {
       SEED_MESSAGES,
       DEFAULT_PROFILE,
+      ICE_PRESETS,
       defaultConnection,
       normalizeProfile,
       normalizeConnection,
@@ -45,6 +54,10 @@ BP.module(
     const { createPairingActions } = pairingActionsLib;
     const { createFileTransfer } = fileTransferLib;
     const { createCallSession } = callSessionLib;
+    const { Router } = routerMod;
+    const { Route } = routeMod;
+    const { useNavigate, useLocation } = paramsMod;
+    const { SCREENS, toLocation, fromLocation } = meetUrl;
 
     const shellStyles = css`
       ${chatTokens}
@@ -79,7 +92,7 @@ BP.module(
         },
       ) => {
         style(shellStyles);
-        scope({ MeetLayout });
+        scope({ MeetLayout, Router, Route });
 
         const password = props.password || "";
         const create = Boolean(props.create);
@@ -122,12 +135,23 @@ BP.module(
         const [incomingKind, setIncomingKind] = state("voice");
         const [sharing, setSharing] = state(false);
         const [mediaTick, setMediaTick] = state(0);
+        const [screen, setScreen] = state(SCREENS.pair);
+        const [profileError, setProfileError] = state("");
         const hostRef = ref();
         const messagesRef = ref([]);
         const profileRef = ref(null);
         const connectionRef = ref(null);
         const incomingFilesRef = ref({});
         const helloSentRef = ref(false);
+        const applyingUrlRef = ref(false);
+        const screenRef = ref(SCREENS.pair);
+
+        const navigate = useNavigate({ useRef: ref });
+        const loc = useLocation({
+          useState: state,
+          useEffect: effect,
+          useRef: ref,
+        });
 
         const profileValue = normalizeProfile(profile);
         const connectionValue = normalizeConnection(connection);
@@ -135,6 +159,7 @@ BP.module(
         messagesRef.current = messageList;
         profileRef.current = profileValue;
         connectionRef.current = connectionValue;
+        screenRef.current = screen;
 
         void profileLoading;
         void connectionLoading;
@@ -211,6 +236,66 @@ BP.module(
         const getConnection = () => connectionRef.current || connectionValue;
         const getProfile = () => profileRef.current || profileValue;
 
+        const writeUrl = (nextScreen, mode) => {
+          const path = toLocation({ screen: nextScreen });
+          if (mode === "replace") navigate(path, { replace: true });
+          else navigate(path);
+        };
+
+        const baseScreenForConnection = (conn) => {
+          const c = normalizeConnection(conn);
+          return c.phase === PHASES.connected ? SCREENS.chat : SCREENS.pair;
+        };
+
+        const applyFromPath = (pathname, conn) => {
+          const c = normalizeConnection(conn);
+          const connected = c.phase === PHASES.connected;
+          const parsed = fromLocation(pathname || "/");
+          let next = parsed.screen;
+
+          applyingUrlRef.current = true;
+
+          if (!next) {
+            next = connected ? SCREENS.chat : SCREENS.pair;
+            setScreen(next);
+            applyingUrlRef.current = false;
+            writeUrl(next, "replace");
+            return;
+          }
+
+          if (next === SCREENS.chat && !connected) {
+            next = SCREENS.pair;
+            setScreen(next);
+            applyingUrlRef.current = false;
+            writeUrl(next, "replace");
+            return;
+          }
+
+          if (next === SCREENS.pair && connected) {
+            next = SCREENS.chat;
+            setScreen(next);
+            applyingUrlRef.current = false;
+            writeUrl(next, "replace");
+            return;
+          }
+
+          if (next === SCREENS.contact && !c.peer) {
+            next = connected ? SCREENS.chat : SCREENS.pair;
+            setScreen(next);
+            applyingUrlRef.current = false;
+            writeUrl(next, "replace");
+            return;
+          }
+
+          setScreen(next);
+          applyingUrlRef.current = false;
+
+          const expected = toLocation({ screen: next });
+          if ((pathname || "/") !== expected) {
+            writeUrl(next, "replace");
+          }
+        };
+
         const calls = createCallSession({
           peer,
           safeSend,
@@ -275,6 +360,31 @@ BP.module(
           };
         }, []);
 
+        // Drive screen from router pathname (hash → UI).
+        effect(() => {
+          if (!ready || loading) return undefined;
+          if (applyingUrlRef.current) return undefined;
+          applyFromPath(loc.pathname, connectionRef.current);
+          return undefined;
+        }, [ready, loading, loc.pathname]);
+
+        // Keep hash in sync when vault connection phase changes.
+        effect(() => {
+          if (!ready || loading) return undefined;
+          if (applyingUrlRef.current) return undefined;
+          const connected = connectionValue.phase === PHASES.connected;
+          const current = screenRef.current;
+          if (connected && current === SCREENS.pair) {
+            writeUrl(SCREENS.chat, "replace");
+          } else if (
+            !connected &&
+            (current === SCREENS.chat || current === SCREENS.contact)
+          ) {
+            writeUrl(SCREENS.pair, "replace");
+          }
+          return undefined;
+        }, [ready, loading, connectionValue.phase, connectionValue.peer]);
+
         const handleSend = (text) => {
           if (!canCompose(getConnection())) return;
           const msg = createTextMessage(text, "out");
@@ -293,6 +403,39 @@ BP.module(
           setConfirmClear(false);
         };
 
+        const goBackFromOverlay = () => {
+          writeUrl(baseScreenForConnection(getConnection()));
+        };
+
+        const openProfile = () => {
+          setProfileError("");
+          writeUrl(SCREENS.profile);
+        };
+
+        const openContact = () => {
+          if (!getConnection().peer) return;
+          writeUrl(SCREENS.contact);
+        };
+
+        const saveProfile = (fields) => {
+          setProfileError("");
+          const nextProfile = normalizeProfile({
+            ...getProfile(),
+            ...fields,
+            completed: true,
+          });
+          if (!nextProfile.displayName || !nextProfile.handle) {
+            setProfileError("Enter a display name and handle.");
+            return;
+          }
+          setProfile(nextProfile);
+          if (peer.isOpen()) {
+            helloSentRef.current = false;
+            pairingApi.sendHello();
+          }
+          writeUrl(baseScreenForConnection(getConnection()));
+        };
+
         if (!ready || loading) {
           return tpl`
             <div class="frame" data-theme="${theme}" ref=${hostRef}>
@@ -308,76 +451,109 @@ BP.module(
 
         return tpl`
           <div class="frame" data-theme="${theme}" ref=${hostRef}>
-            <dimim-meet-layout
-              .props="${{
-                theme,
-                connected,
-                pairingProps: {
+            <dimurl-router>
+              <dimurl-route path="/pair"></dimurl-route>
+              <dimurl-route path="/chat"></dimurl-route>
+              <dimurl-route path="/profile"></dimurl-route>
+              <dimurl-route path="/contact"></dimurl-route>
+              <dimim-meet-layout
+                .props="${{
                   theme,
-                  phase: connectionValue.phase,
-                  profile: profileValue,
-                  localCode: connectionValue.localCode,
-                  statusBanner: connectionValue.statusBanner,
-                  minting,
-                  onProfileContinue: pairingApi.handleProfileContinue,
-                  onPasteCode: pairingApi.handlePasteCode,
-                },
-                threadProps: {
-                  theme,
-                  peer: connectionValue.peer || {},
-                  connected,
-                  online: connected && peer.isOpen(),
-                  typing: peerTyping,
-                  messages: messageList,
-                  incomingOpen,
-                  incomingKind,
-                  onSend: handleSend,
-                  onAttach: files.handleAttach,
-                  onTyping: handleTyping,
-                  onVoice: () => calls.startOutboundCall("voice"),
-                  onVideo: () => calls.startOutboundCall("video"),
-                  onLock,
-                  onCancelFile: files.handleCancelFile,
-                  onAcceptIncoming: calls.acceptIncoming,
-                  onDeclineIncoming: calls.declineIncoming,
-                  menuItems: [
-                    {
-                      label: "Clear history",
-                      danger: true,
-                      onClick: () => setConfirmClear(true),
-                    },
-                    {
-                      label: "Disconnect",
-                      danger: true,
-                      onClick: pairingApi.handleDisconnect,
-                    },
-                  ],
-                },
-                callProps: {
-                  open: callOpen,
-                  peer: connectionValue.peer || {},
-                  kind: callKind,
-                  phase: callPhase,
-                  minimized: callMinimized,
-                  sharing,
-                  localStream: peer.getLocalStream(),
-                  remoteStream: peer.getRemoteStream(),
-                  onEnd: calls.endCall,
-                  onToggleMinimize: () => setCallMinimized(!callMinimized),
-                  onToggleMute: (enabled) => peer.setMicEnabled(enabled),
-                  onToggleCamera: (enabled) => peer.setCamEnabled(enabled),
-                  onToggleShare: calls.toggleShare,
-                },
-                confirmProps: {
-                  open: confirmClear,
-                  title: "Clear history?",
-                  body: "This wipes messages in this browser vault only. The link stays up.",
-                  confirmLabel: "Clear",
-                  onConfirm: clearHistory,
-                  onCancel: () => setConfirmClear(false),
-                },
-              }}"
-            />
+                  activeScreen: screen,
+                  pairingProps: {
+                    theme,
+                    phase: connectionValue.phase,
+                    profile: profileValue,
+                    localCode: connectionValue.localCode,
+                    statusBanner: connectionValue.statusBanner,
+                    minting,
+                    onProfileContinue: pairingApi.handleProfileContinue,
+                    onPasteCode: pairingApi.handlePasteCode,
+                    onEditProfile: profileValue.completed ? openProfile : null,
+                  },
+                  threadProps: {
+                    theme,
+                    peer: connectionValue.peer || {},
+                    connected,
+                    online: connected && peer.isOpen(),
+                    typing: peerTyping,
+                    messages: messageList,
+                    incomingOpen,
+                    incomingKind,
+                    onSend: handleSend,
+                    onAttach: files.handleAttach,
+                    onTyping: handleTyping,
+                    onVoice: () => calls.startOutboundCall("voice"),
+                    onVideo: () => calls.startOutboundCall("video"),
+                    onLock,
+                    onPeerClick: openContact,
+                    onCancelFile: files.handleCancelFile,
+                    onAcceptIncoming: calls.acceptIncoming,
+                    onDeclineIncoming: calls.declineIncoming,
+                    menuItems: [
+                      {
+                        label: "My profile",
+                        onClick: openProfile,
+                      },
+                      {
+                        label: "Contact info",
+                        onClick: openContact,
+                      },
+                      {
+                        label: "Clear history",
+                        danger: true,
+                        onClick: () => setConfirmClear(true),
+                      },
+                      {
+                        label: "Disconnect",
+                        danger: true,
+                        onClick: () => {
+                          pairingApi.handleDisconnect();
+                          writeUrl(SCREENS.pair, "replace");
+                        },
+                      },
+                    ],
+                  },
+                  profileProps: {
+                    theme,
+                    profile: profileValue,
+                    icePresets: ICE_PRESETS,
+                    error: profileError,
+                    onBack: goBackFromOverlay,
+                    onSave: saveProfile,
+                  },
+                  contactProps: {
+                    theme,
+                    contact: connectionValue.peer,
+                    online: connected && peer.isOpen(),
+                    onBack: goBackFromOverlay,
+                  },
+                  callProps: {
+                    open: callOpen,
+                    peer: connectionValue.peer || {},
+                    kind: callKind,
+                    phase: callPhase,
+                    minimized: callMinimized,
+                    sharing,
+                    localStream: peer.getLocalStream(),
+                    remoteStream: peer.getRemoteStream(),
+                    onEnd: calls.endCall,
+                    onToggleMinimize: () => setCallMinimized(!callMinimized),
+                    onToggleMute: (enabled) => peer.setMicEnabled(enabled),
+                    onToggleCamera: (enabled) => peer.setCamEnabled(enabled),
+                    onToggleShare: calls.toggleShare,
+                  },
+                  confirmProps: {
+                    open: confirmClear,
+                    title: "Clear history?",
+                    body: "This wipes messages in this browser vault only. The link stays up.",
+                    confirmLabel: "Clear",
+                    onConfirm: clearHistory,
+                    onCancel: () => setConfirmClear(false),
+                  },
+                }}"
+              />
+            </dimurl-router>
           </div>
         `;
       },

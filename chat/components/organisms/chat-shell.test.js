@@ -10,6 +10,18 @@
     });
   }
 
+  function resetHash() {
+    try {
+      var u = new URL(window.location.href);
+      u.hash = "#/";
+      window.history.replaceState({}, "", u.href);
+    } catch (e) {
+      try {
+        window.location.hash = "/";
+      } catch (e2) {}
+    }
+  }
+
   function setTextField(field, value) {
     var input = field.shadowRoot.querySelector("input");
     input.value = value;
@@ -193,6 +205,7 @@
   }
 
   test("chat-shell create vault profile mint connect and chat", async function () {
+    resetHash();
     installRtc();
     await BP.require("chat/components/organisms/chat-shell");
     var peer = await BP.require("chat/lib/peer");
@@ -288,6 +301,83 @@
       "Bo",
     );
 
+    var hashApi = await BP.require("dimurl/hash");
+    expect(hashApi.read().pathname).toBe("/chat");
+
+    // Peer click → contact screen
+    var header = thread.shadowRoot.querySelector("dimui-chat-header");
+    var peerBtn = header.shadowRoot.querySelector("button.peer.clickable");
+    expect(peerBtn).toBeTruthy();
+    peerBtn.click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-messaging-contact")
+      );
+    }, "contact from peer click");
+    expect(hashApi.read().pathname).toBe("/contact");
+    layout.shadowRoot
+      .querySelector("dimui-messaging-contact")
+      .shadowRoot.querySelector("dimui-icon-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-chat-thread")
+      );
+    }, "back to chat from contact");
+
+    // My profile while connected (re-sends hello when channel open)
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
+    header = thread.shadowRoot.querySelector("dimui-chat-header");
+    var menu = header.shadowRoot.querySelector("dimui-overflow-menu");
+    menu.shadowRoot
+      .querySelector("dimui-icon-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await flush(menu);
+    var profileItem = Array.prototype.find.call(
+      menu.shadowRoot.querySelectorAll('[role="menuitem"]'),
+      function (item) {
+        return (item.textContent || "").indexOf("My profile") >= 0;
+      },
+    );
+    profileItem.click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-profile")
+      );
+    }, "profile while connected");
+    layout.shadowRoot
+      .querySelector("dimui-profile")
+      .shadowRoot.querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-chat-thread")
+      );
+    }, "back to chat after profile save");
+
+    // Unknown hash while connected → /chat
+    hashApi.replace("/mystery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return hashApi.read().pathname === "/chat" ? true : null;
+    }, "unknown → chat when connected");
+
+    thread = layout.shadowRoot.querySelector("dimui-chat-thread");
     var composer = thread.shadowRoot.querySelector("dimui-composer");
     var ta = composer.shadowRoot.querySelector("textarea");
     ta.value = "hello peer";
@@ -605,6 +695,15 @@
     );
     await sleep(80);
 
+    function clickMenuLabel(menuEl, label) {
+      var items = menuEl.shadowRoot.querySelectorAll('[role="menuitem"]');
+      var target = Array.prototype.find.call(items, function (item) {
+        return (item.textContent || "").indexOf(label) >= 0;
+      });
+      if (!target) throw new Error("menu item missing: " + label);
+      target.click();
+    }
+
     // Clear history
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
     thread = layout.shadowRoot.querySelector("dimui-chat-thread");
@@ -615,8 +714,7 @@
       .shadowRoot.querySelector("button")
       .click();
     await flush(menu);
-    var items = menu.shadowRoot.querySelectorAll('[role="menuitem"]');
-    items[0].click();
+    clickMenuLabel(menu, "Clear history");
     await flush(el);
     layout = el.shadowRoot.querySelector("dimim-meet-layout");
     var confirm = layout.shadowRoot.querySelector("dimui-confirm-dialog");
@@ -646,8 +744,7 @@
       .shadowRoot.querySelector("button")
       .click();
     await flush(menu);
-    items = menu.shadowRoot.querySelectorAll('[role="menuitem"]');
-    items[1].click();
+    clickMenuLabel(menu, "Disconnect");
     await sleep(200);
 
     await waitFor(function () {
@@ -792,6 +889,7 @@
   });
 
   test("chat-shell unmount resets peer", async function () {
+    resetHash();
     installRtc();
     await BP.require("chat/components/organisms/chat-shell");
     var peer = await BP.require("chat/lib/peer");
@@ -838,6 +936,7 @@
   });
 
   test("chat-shell wrong password fails unlock", async function () {
+    resetHash();
     await BP.require("chat/components/organisms/chat-shell");
     var vault = await BP.require("chat/lib/vault");
     try {
@@ -860,6 +959,7 @@
   });
 
   test("chat-shell expands wu1z QR payloads on paste", async function () {
+    resetHash();
     await BP.require("chat/components/organisms/chat-shell");
     var vault = await BP.require("chat/lib/vault");
     var qrPayload = await BP.require("chat/lib/qr-payload");
@@ -938,5 +1038,136 @@
     pasteIntoPanel(qrPayload.PREFIX_Z + "yy");
     await sleep(40);
     qrPayload.fromQr = origFrom;
+  });
+
+  test("chat-shell syncs screen to hash and opens from hash", async function () {
+    resetHash();
+    installRtc();
+    await BP.require("chat/components/organisms/chat-shell");
+    var hash = await BP.require("dimurl/hash");
+    var peer = await BP.require("chat/lib/peer");
+    peer.setIceWaitMs(10);
+    peer.reset();
+
+    var vault = await BP.require("chat/lib/vault");
+    try {
+      localStorage.removeItem(vault.VAULT_FLAG);
+    } catch (e) {}
+
+    var el = await mount("dimim-chat-shell", {
+      password: "hash-pass-1",
+      create: true,
+      theme: "dark",
+      onLock: function () {},
+      onUnlockFailed: function () {},
+    });
+
+    var layout = await waitShellReady(el);
+    await waitFor(function () {
+      return hash.read().pathname === "/pair" ? true : null;
+    }, "hash pair after unlock");
+
+    var wizard = await waitFor(function () {
+      return (
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "pairing wizard");
+
+    var fields = wizard.shadowRoot.querySelectorAll("dimui-text-field");
+    setTextField(fields[0], "Ada");
+    setTextField(fields[1], "ada");
+    await flush(wizard);
+    wizard.shadowRoot
+      .querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      wizard =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard");
+      return wizard && shadowText(wizard).indexOf("Share your invite") >= 0
+        ? true
+        : null;
+    }, "share invite");
+    expect(hash.read().pathname).toBe("/pair");
+    expect(shadowText(wizard).indexOf("Edit profile") >= 0).toBe(true);
+
+    // Edit profile button → /profile
+    wizard.shadowRoot.querySelector(".edit-profile button").click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-profile")
+      );
+    }, "profile from edit button");
+    expect(hash.read().pathname).toBe("/profile");
+
+    // Save with empty fields → validation error stays on profile
+    var profileEl = layout.shadowRoot.querySelector("dimui-profile");
+    var pFields = profileEl.shadowRoot.querySelectorAll("dimui-text-field");
+    setTextField(pFields[0], "");
+    setTextField(pFields[1], "");
+    await flush(profileEl);
+    profileEl.shadowRoot
+      .querySelector("dimui-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await flush(el);
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      profileEl =
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimui-profile");
+      return profileEl && shadowText(profileEl).indexOf("Enter a display name") >= 0
+        ? true
+        : null;
+    }, "profile validation error");
+
+    // Back from profile → pair
+    profileEl.shadowRoot
+      .querySelector("dimui-icon-button")
+      .shadowRoot.querySelector("button")
+      .click();
+    await waitFor(function () {
+      layout = el.shadowRoot.querySelector("dimim-meet-layout");
+      return (
+        layout &&
+        layout.shadowRoot &&
+        layout.shadowRoot.querySelector("dimim-pairing-wizard")
+      );
+    }, "back to pair after back");
+    expect(hash.read().pathname).toBe("/pair");
+
+    // Unknown hash shape → canonicalize to /pair
+    hash.replace("/nope/unknown");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return hash.read().pathname === "/pair" ? true : null;
+    }, "unknown → pair");
+
+    // Invalid #/chat while pairing → replace to /pair
+    hash.replace("/chat");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return hash.read().pathname === "/pair" ? true : null;
+    }, "invalid chat → pair");
+
+    // Invalid #/contact without peer → replace to /pair
+    hash.replace("/contact");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(function () {
+      return hash.read().pathname === "/pair" ? true : null;
+    }, "invalid contact → pair");
+    layout = el.shadowRoot.querySelector("dimim-meet-layout");
+    expect(layout.shadowRoot.querySelector("dimim-pairing-wizard")).toBeTruthy();
+
+    peer.reset();
+    resetHash();
   });
 })();

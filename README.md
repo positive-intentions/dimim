@@ -16,7 +16,7 @@
 
 <div align="center">
 
-[**Live**](https://dim.glitr.io) | [**Tests**](https://dim.glitr.io/runTests.html) | [**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate)
+[**Live**](https://dim.glitr.io) | [**Tests**](https://dim.glitr.io/runTests.html) | [**dim**](https://github.com/positive-intentions/dim) | [**dimui**](https://github.com/positive-intentions/dimui) | [**dimurl**](https://github.com/positive-intentions/dimurl) | [**dim-boilerplate**](https://github.com/positive-intentions/dim-boilerplate)
 
 </div>
 
@@ -24,8 +24,11 @@
 
 The **application logic** is ordinary `.js` files in this repo — no
 minification or transpilation. Open [`index.html`](./index.html) to run it.
-The Dim runtime and reusable [dimui](https://github.com/positive-intentions/dimui)
-widgets load from their GitHub Pages CDNs over the network.
+The Dim runtime, reusable [dimui](https://github.com/positive-intentions/dimui)
+widgets, and [dimurl](https://github.com/positive-intentions/dimurl) hash router
+load from their GitHub Pages CDNs over the network. Screens use hash URLs
+(e.g. `#/pair`, `#/chat`, `#/profile`, `#/contact`) so deep links work on
+static hosting.
 
 ## What this is
 
@@ -56,17 +59,19 @@ npx serve
 4. Both sides enter the thread when the data channel + `hello` frame land
 5. Send text, attach small files, try voice/video (camera permission required)
 
-Runtimes: `?impl=js` or `?impl=wasm` (also in the header).
+Runtimes: `?impl=js` or `?impl=wasm` (also in the header). After unlock,
+hash screens look like `#/pair` (wizard), `#/chat` (thread), `#/profile`,
+and `#/contact`.
 
-### Local dimui (QR encode/scan before Pages deploy)
+### Local dimui / dimurl (before Pages deploy)
 
-dimui widgets load from the GitHub Pages CDN by default. To use a local
-checkout of unpublished atoms (e.g. `dimui-qr-code` / `dimui-qr-scanner`),
-serve both trees and point dimim at local dimui with `?dimuiSrc=` pointing at
-the dimui `src/` origin:
+dimui and dimurl load from the GitHub Pages CDN by default. To use a local
+checkout of unpublished widgets or router changes, serve those trees and
+point dimim with `?dimuiSrc=` / `?dimurlSrc=` at their `src/` origins:
 
 ```bash
-npx serve ../dimui
+npx serve ../dimui   # e.g. :3000 → ?dimuiSrc=http://127.0.0.1:3000/src/
+npx serve ../dimurl  # e.g. :5180 → ?dimurlSrc=http://127.0.0.1:5180/src/
 npx serve .
 ```
 
@@ -120,11 +125,12 @@ The page itself is the report UI:
 - **E2E preview**: `DimTest.open` (and two-peer helpers that wrap it) render
   the real app under the report — peers appear side-by-side for handshake flows
 
-Useful query flags: `?impl=js|wasm`, `?dimuiSrc=…`, `?dimLib=…`.
+Useful query flags: `?impl=js|wasm`, `?dimuiSrc=…`, `?dimurlSrc=…`, `?dimLib=…`.
 
 E2E specs:
 
 - [`chat/e2e/meet-app.e2e.test.js`](./chat/e2e/meet-app.e2e.test.js) — vault + invite mint
+- [`chat/e2e/meet-hash.e2e.test.js`](./chat/e2e/meet-hash.e2e.test.js) — hash sync + profile deep link
 - [`chat/e2e/p2p.e2e.test.js`](./chat/e2e/p2p.e2e.test.js) — two isolated iframes; the
   controller copies invite/reply between them (no mock peer)
 

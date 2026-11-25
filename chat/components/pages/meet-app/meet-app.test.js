@@ -102,7 +102,20 @@
     globalThis.RTCPeerConnection = MockRTCPeerConnection;
   }
 
+  function resetHash() {
+    try {
+      var u = new URL(window.location.href);
+      u.hash = "#/";
+      window.history.replaceState({}, "", u.href);
+    } catch (e) {
+      try {
+        window.location.hash = "/";
+      } catch (e2) {}
+    }
+  }
+
   test("meet-app shows unlock then shell on create", async function () {
+    resetHash();
     installRtc();
     await BP.require("chat/components/pages/meet-app");
     var peer = await BP.require("chat/lib/peer");

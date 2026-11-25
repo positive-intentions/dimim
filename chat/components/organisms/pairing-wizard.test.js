@@ -53,6 +53,7 @@
     expect(profilePayload.icePreset).toBe("google");
 
     var pasted = null;
+    var editClicked = false;
     var share = await mount("dimim-pairing-wizard", {
       theme: "light",
       phase: "shareInvite",
@@ -64,8 +65,14 @@
         pasted = code;
         return { ok: true };
       },
+      onEditProfile: function () {
+        editClicked = true;
+      },
     });
     expect(shadowText(share)).toContain("Share your invite");
+    expect(shadowText(share)).toContain("Edit profile");
+    share.shadowRoot.querySelector(".edit-profile button").click();
+    expect(editClicked).toBe(true);
     var panel = share.shadowRoot.querySelector("dimim-share-code-panel");
     expect(shadowText(panel)).toContain("wu1:share");
 

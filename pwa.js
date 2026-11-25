@@ -1,7 +1,8 @@
 /**
  * Registers the service worker (HTTPS / localhost only), harvests loaded
- * Dim / dimui resource URLs for offline cache, and exposes install-prompt
- * helpers for an in-app Install button (beforeinstallprompt + iOS tip).
+ * Dim / dimui / dimurl resource URLs for offline cache, and exposes
+ * install-prompt helpers for an in-app Install button (beforeinstallprompt
+ * + iOS tip).
  */
 (function () {
   var CDN_ORIGIN = "https://positive-intentions.github.io";
@@ -110,9 +111,11 @@
     if (!url || typeof url !== "string") return false;
     if (url.indexOf(CDN_ORIGIN + "/dim/") === 0) return true;
     if (url.indexOf(CDN_ORIGIN + "/dimui/") === 0) return true;
+    if (url.indexOf(CDN_ORIGIN + "/dimurl/") === 0) return true;
     // Proxy paths under this app (later visits)
     if (url.indexOf("/pwa/cdn/dim/") !== -1) return true;
     if (url.indexOf("/pwa/cdn/dimui/") !== -1) return true;
+    if (url.indexOf("/pwa/cdn/dimurl/") !== -1) return true;
     return false;
   }
 

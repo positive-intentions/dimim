@@ -6,21 +6,24 @@
  * local classic-script chat components (local ES modules are blocked on
  * file:// in Chrome).
  *
- * Remote dimui modules load as classic scripts via <script src> when a BP
- * dep starts with "dimui/" (e.g. "dimui/components/atoms/button"). Those
- * scripts call BP.module into this page's registry. Dim itself is a classic
- * remote IIFE (not import()) so window.Dim exists before this shim is built.
+ * Remote dimui / dimurl modules load as classic scripts via <script src>
+ * when a BP dep starts with "dimui/" or "dimurl/". Those scripts call
+ * BP.module into this page's registry. Dim itself is a classic remote IIFE
+ * (not import()) so window.Dim exists before this shim is built.
  */
 (function () {
   var CDN_DIMUI_SRC = "https://positive-intentions.github.io/dimui/src/";
+  var CDN_DIMURL_SRC = "https://positive-intentions.github.io/dimurl/src/";
   var CDN_DIM_LIB = "https://positive-intentions.github.io/dim/lib/";
-  // When a service worker already controls the page, route Dim/dimui through
-  // same-scope proxy paths so the worker can intercept and serve them offline.
+  // When a service worker already controls the page, route Dim/dimui/dimurl
+  // through same-scope proxy paths so the worker can intercept and serve
+  // them offline.
   var controlled =
     typeof navigator !== "undefined" &&
     navigator.serviceWorker &&
     navigator.serviceWorker.controller;
   var DIMUI_SRC = controlled ? "./pwa/cdn/dimui/src/" : CDN_DIMUI_SRC;
+  var DIMURL_SRC = controlled ? "./pwa/cdn/dimurl/src/" : CDN_DIMURL_SRC;
   var DIM_LIB = controlled ? "./pwa/cdn/dim/lib/" : CDN_DIM_LIB;
   // Srcdoc e2e iframes (about:srcdoc) have no query string — inherit from parent.
   try {
@@ -29,12 +32,16 @@
       if (parentDimim && parentDimim.dimuiSrc) {
         DIMUI_SRC = parentDimim.dimuiSrc;
       }
+      if (parentDimim && parentDimim.dimurlSrc) {
+        DIMURL_SRC = parentDimim.dimurlSrc;
+      }
       if (parentDimim && parentDimim.dimLib) {
         DIM_LIB = parentDimim.dimLib;
       }
     }
   } catch (eParent) {}
-  // Query overrides win (local dimui while developing): ?dimuiSrc=http://127.0.0.1:5173/src/
+  // Query overrides win (local dimui / dimurl while developing):
+  // ?dimuiSrc=http://127.0.0.1:5173/src/&dimurlSrc=http://127.0.0.1:5180/src/
   try {
     var params = new URLSearchParams(location.search || "");
     var dimuiSrcQ = params.get("dimuiSrc") || "";
@@ -43,6 +50,13 @@
         dimuiSrcQ.charAt(dimuiSrcQ.length - 1) === "/"
           ? dimuiSrcQ
           : dimuiSrcQ + "/";
+    }
+    var dimurlSrcQ = params.get("dimurlSrc") || "";
+    if (dimurlSrcQ) {
+      DIMURL_SRC =
+        dimurlSrcQ.charAt(dimurlSrcQ.length - 1) === "/"
+          ? dimurlSrcQ
+          : dimurlSrcQ + "/";
     }
     var dimLibQ = params.get("dimLib") || "";
     if (dimLibQ) {
@@ -62,6 +76,7 @@
   globalThis.__DIMIM__ = {
     impl: document.documentElement.dataset.dimRuntime || "js",
     dimuiSrc: DIMUI_SRC,
+    dimurlSrc: DIMURL_SRC,
     dimLib: DIM_LIB,
     pwaControlled: !!controlled,
   };
@@ -74,12 +89,20 @@
   var cache = Object.create(null);
   var loading = Object.create(null);
 
-  function scriptUrlForDimui(name) {
-    // "dimui/theme" → theme.js
-    // "dimui/components/atoms/button" → components/atoms/button.js
-    var path = name.slice("dimui/".length);
-    if (!path) return null;
-    return DIMUI_SRC + path + ".js";
+  function scriptUrlForRemote(name) {
+    if (name.indexOf("dimui/") === 0) {
+      // "dimui/theme" → theme.js
+      // "dimui/components/atoms/button" → components/atoms/button.js
+      var uiPath = name.slice("dimui/".length);
+      if (!uiPath) return null;
+      return DIMUI_SRC + uiPath + ".js";
+    }
+    if (name.indexOf("dimurl/") === 0) {
+      var urlPath = name.slice("dimurl/".length);
+      if (!urlPath) return null;
+      return DIMURL_SRC + urlPath + ".js";
+    }
+    return null;
   }
 
   function loadScript(url) {
@@ -102,14 +125,11 @@
 
   function ensureRegistered(name) {
     if (registry[name]) return Promise.resolve();
-    if (name.indexOf("dimui/") !== 0) {
+    var url = scriptUrlForRemote(name);
+    if (!url) {
       return Promise.reject(
         new Error('BP module "' + name + '" is not registered'),
       );
-    }
-    var url = scriptUrlForDimui(name);
-    if (!url) {
-      return Promise.reject(new Error('Invalid dimui module id "' + name + '"'));
     }
     return loadScript(url).then(function () {
       if (!registry[name]) {
